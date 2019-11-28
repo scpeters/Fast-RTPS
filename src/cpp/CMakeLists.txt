@@ -367,6 +367,8 @@ elseif(NOT EPROSIMA_INSTALLER)
     # No need to expose linked libs when target is a shared library on MSVC.
     if(BUILD_SHARED_LIBS AND MSVC)
         set(PRIVACY "PRIVATE")
+    else()
+        set(PRIVACY "PUBLIC")
     endif()
 
     # Link library to external libraries.
@@ -375,6 +377,7 @@ elseif(NOT EPROSIMA_INSTALLER)
         ${TINYXML2_LIBRARY}
         $<$<BOOL:${LINK_SSL}>:OpenSSL::SSL$<SEMICOLON>OpenSSL::Crypto>
         $<$<BOOL:${WIN32}>:iphlpapi$<SEMICOLON>Shlwapi>
+        PRIVATE
         $<$<BOOL:${ZLIB_FOUND}>:ZLIB::ZLIB>
         $<$<BOOL:${BZIP2_FOUND}>:BZip2::BZip2>
         )
