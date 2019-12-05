@@ -25,6 +25,8 @@
 
 #include <fastdds/rtps/network/NetworkFactory.h>
 
+#include <rtps/builtin/data/ProxyDataFilters.hpp>
+
 namespace eprosima {
 namespace fastrtps {
 namespace rtps {
@@ -553,9 +555,16 @@ bool WriterProxyData::writeToCDRMessage(
 
 bool WriterProxyData::readFromCDRMessage(
         CDRMessage_t* msg,
-        const NetworkFactory& network)
+        const NetworkFactory& network,
+        bool is_shm_transport_available)
 {
-    auto param_process = [this, &network](CDRMessage_t* msg, const ParameterId_t& pid, uint16_t plength)
+    bool are_shm_default_locators_present = false;
+    bool is_shm_transport_possible = false;
+
+    auto param_process = [this, &network, 
+        &is_shm_transport_available,
+        &is_shm_transport_possible,
+        &are_shm_default_locators_present](CDRMessage_t* msg, const ParameterId_t& pid, uint16_t plength)
             {
                 switch (pid)
                 {
@@ -756,7 +765,13 @@ bool WriterProxyData::readFromCDRMessage(
                         Locator_t temp_locator;
                         if (network.transform_remote_locator(p.locator, temp_locator))
                         {
-                            remote_locators_.add_unicast_locator(temp_locator);
+                            ProxyDataFilters::filter_locators(
+                                is_shm_transport_available,
+                                &is_shm_transport_possible,
+                                &are_shm_default_locators_present,
+                                &remote_locators_,
+                                temp_locator,
+                                true);
                         }
                         break;
                     }
@@ -771,7 +786,13 @@ bool WriterProxyData::readFromCDRMessage(
                         Locator_t temp_locator;
                         if (network.transform_remote_locator(p.locator, temp_locator))
                         {
-                            remote_locators_.add_multicast_locator(temp_locator);
+                            ProxyDataFilters::filter_locators(
+                                is_shm_transport_available,
+                                &is_shm_transport_possible,
+                                &are_shm_default_locators_present,
+                                &remote_locators_,
+                                temp_locator,
+                                false);
                         }
                         break;
                     }

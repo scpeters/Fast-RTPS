@@ -21,10 +21,12 @@
 #include <fastdds/rtps/builtin/data/ParticipantProxyData.h>
 #include <fastdds/rtps/builtin/data/WriterProxyData.h>
 #include <fastdds/rtps/builtin/data/ReaderProxyData.h>
+#include <rtps/builtin/data/ProxyDataFilters.hpp>
 #include <fastdds/rtps/builtin/discovery/participant/PDPSimple.h>
 #include <fastdds/rtps/resources/TimedEvent.h>
 #include <fastdds/rtps/builtin/BuiltinProtocols.h>
 #include <fastdds/rtps/network/NetworkFactory.h>
+#include <rtps/transport/shared_mem/SHMLocator.hpp>
 #include <fastdds/dds/log/Log.hpp>
 #include <fastrtps/utils/TimeConversion.h>
 
@@ -34,7 +36,6 @@
 #include <chrono>
 
 using namespace eprosima::fastrtps;
-
 
 namespace eprosima {
 namespace fastrtps {
@@ -365,9 +366,17 @@ bool ParticipantProxyData::writeToCDRMessage(
 bool ParticipantProxyData::readFromCDRMessage(
         CDRMessage_t* msg,
         bool use_encapsulation,
-        const NetworkFactory& network)
+        const NetworkFactory& network,
+        bool is_shm_transport_available)
 {
-    auto param_process = [this, &network](CDRMessage_t* msg, const ParameterId_t& pid, uint16_t plength)
+    bool are_shm_metatraffic_locators_present = false;
+    bool are_shm_default_locators_present = false;
+    bool is_shm_transport_possible = false;
+
+    auto param_process = [this, &network, &is_shm_transport_possible, 
+        &are_shm_metatraffic_locators_present,
+        &are_shm_default_locators_present,
+        &is_shm_transport_available](CDRMessage_t* msg, const ParameterId_t& pid, uint16_t plength)
             {
                 switch (pid)
                 {
@@ -446,7 +455,13 @@ bool ParticipantProxyData::readFromCDRMessage(
                         Locator_t temp_locator;
                         if (network.transform_remote_locator(p.locator, temp_locator))
                         {
-                            metatraffic_locators.add_multicast_locator(temp_locator);
+                            ProxyDataFilters::filter_locators(
+                                is_shm_transport_available,
+                                &is_shm_transport_possible,
+                                &are_shm_metatraffic_locators_present,
+                                &metatraffic_locators,
+                                temp_locator,
+                                false);
                         }
                         break;
                     }
@@ -461,7 +476,13 @@ bool ParticipantProxyData::readFromCDRMessage(
                         Locator_t temp_locator;
                         if (network.transform_remote_locator(p.locator, temp_locator))
                         {
-                            metatraffic_locators.add_unicast_locator(temp_locator);
+                            ProxyDataFilters::filter_locators(
+                                is_shm_transport_available,
+                                &is_shm_transport_possible,
+                                &are_shm_metatraffic_locators_present,
+                                &metatraffic_locators,
+                                temp_locator,
+                                true);
                         }
                         break;
                     }
@@ -476,7 +497,13 @@ bool ParticipantProxyData::readFromCDRMessage(
                         Locator_t temp_locator;
                         if (network.transform_remote_locator(p.locator, temp_locator))
                         {
-                            default_locators.add_unicast_locator(temp_locator);
+                            ProxyDataFilters::filter_locators(
+                                is_shm_transport_available,
+                                &is_shm_transport_possible,
+                                &are_shm_default_locators_present,
+                                &default_locators,
+                                temp_locator,
+                                true);
                         }
                         break;
                     }
@@ -491,7 +518,13 @@ bool ParticipantProxyData::readFromCDRMessage(
                         Locator_t temp_locator;
                         if (network.transform_remote_locator(p.locator, temp_locator))
                         {
-                            default_locators.add_multicast_locator(temp_locator);
+                            ProxyDataFilters::filter_locators(
+                                is_shm_transport_available,
+                                &is_shm_transport_possible,
+                                &are_shm_default_locators_present,
+                                &default_locators,
+                                temp_locator,
+                                false);
                         }
                         break;
                     }
