@@ -30,8 +30,10 @@
 #include <rtps/transport/shared_mem/SharedMemChannelResource.hpp>
 
 #include <rtps/transport/shared_mem/SharedMemManager.hpp>
+#include <rtps/transport/shared_mem/SharedMemTrace.hpp>
 
 #define SHMEM_MANAGER_DOMAIN ("fastrtps")
+#define SHMEM_TRACE "C:\\trace\\transport.pcap"
 
 using namespace std;
 
@@ -86,6 +88,7 @@ SharedMemTransport::SharedMemTransport(
         const SharedMemTransportDescriptor& descriptor)
     : TransportInterface(LOCATOR_KIND_SHMEM)
     , configuration_(descriptor)
+	, dump_file_(nullptr)
 {
     
 }
@@ -270,6 +273,11 @@ bool SharedMemTransport::init()
 
 		shared_mem_manager_ = std::make_shared<SharedMemManager>(SHMEM_MANAGER_DOMAIN);
 		shared_mem_segment_ = shared_mem_manager_->create_segment(configuration_.segment_size, configuration_.port_queue_capacity);
+
+#ifdef SHMEM_TRACE
+		//dump_file_ = fopen(SHMEM_TRACE,  "w");
+#endif
+
 	}
 	catch (std::exception& e)
 	{
@@ -518,6 +526,12 @@ bool SharedMemTransport::send(
 		const Locator_t& remote_locator,
 		const std::chrono::microseconds& timeout)
 {
+	Locator_t source_locator;
+	source_locator.kind = LOCATOR_KIND_SHMEM;
+	FILE* dump_file = fopen(SHMEM_TRACE, "a");
+	__dump_packet(dump_file, source_locator, remote_locator, static_cast<octet*>(buffer->data()), buffer->size());
+	fclose(dump_file);
+
 	if (!IsLocatorSupported(remote_locator))
 	{
 		return false;
@@ -528,7 +542,7 @@ bool SharedMemTransport::send(
 		return false;
 	}
 
-	logInfo(RTPS_MSG_OUT, "SharedMemTransport: " << buffer->size() << " bytes to port " << remote_locator.port);
+	logInfo(RTPS_MSG_OUT, "(ID:" << std::this_thread::get_id() <<") " << "SharedMemTransport: " << buffer->size() << " bytes to port " << remote_locator.port);
 
 	return true;		
 }
@@ -586,34 +600,14 @@ void SharedMemTransport::select_locators(
 		{
 			bool selected = false;
 
-			// First try to find a multicast locator which is at least on another list.
-			for (size_t j = 0; j < entry->multicast.size() && !selected; ++j)
+			// With shared-memory transport using multicast vs unicast is not an advantage
+			// because no copies are saved. So no multicast locators are selected
+			for (size_t j = 0; j < entry->unicast.size(); ++j)
 			{
-				if (IsLocatorSupported(entry->multicast[j]))
+				if (IsLocatorSupported(entry->unicast[j]) && !selector.is_selected(entry->unicast[j]))
 				{
-					if (check_and_invalidate(entries, i + 1, entry->multicast[j]))
-					{
-						entry->state.multicast.push_back(j);
-						selected = true;
-					}
-					else if (entry->unicast.size() == 0)
-					{
-						entry->state.multicast.push_back(j);
-						selected = true;
-					}
-				}
-			}
-
-			// If we couldn't find a multicast locator, select all unicast locators
-			if (!selected)
-			{
-				for (size_t j = 0; j < entry->unicast.size(); ++j)
-				{
-					if (IsLocatorSupported(entry->unicast[j].kind) && !selector.is_selected(entry->unicast[j]))
-					{
-						entry->state.unicast.push_back(j);
-						selected = true;
-					}
+					entry->state.unicast.push_back(j);
+					selected = true;
 				}
 			}
 

@@ -202,6 +202,8 @@ private:
 
 	friend class SharedMemChannelResource;
 
+	FILE* dump_file_;
+
 	/**
 	 * Creates an input channel
 	 * @param locator Listening locator
