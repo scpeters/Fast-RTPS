@@ -531,7 +531,7 @@ bool UDPTransportInterface::send(
         }
 
         (void)bytesSent;
-        logInfo(RTPS_MSG_OUT, "UDPTransport: " << bytesSent << " bytes TO endpoint: " << destinationEndpoint
+        logInfo(RTPS_MSG_OUT, "(ID:" << std::this_thread::get_id() <<") " << "UDPTransport: " << bytesSent << " bytes TO endpoint: " << destinationEndpoint
             << " FROM " << getSocketPtr(socket)->local_endpoint());
         success = true;
     }

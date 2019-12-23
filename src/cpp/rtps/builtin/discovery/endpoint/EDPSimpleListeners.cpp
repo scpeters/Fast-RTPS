@@ -106,7 +106,7 @@ void EDPSimplePUBListener::onNewCacheChangeAdded(
 {
     CacheChange_t* change = (CacheChange_t*)change_in;
     //std::lock_guard<std::recursive_mutex> guard(*this->sedp_->publications_reader_.first->getMutex());
-    logInfo(RTPS_EDP, "");
+    logInfo(RTPS_EDP, "reader " << reader->getGuid());
     if (!computeKey(change))
     {
         logWarning(RTPS_EDP, "Received change with no Key");
@@ -206,7 +206,7 @@ void EDPSimpleSUBListener::onNewCacheChangeAdded(
 {
     CacheChange_t* change = (CacheChange_t*)change_in;
     //std::lock_guard<std::recursive_mutex> guard(*this->sedp_->subscriptions_reader_.first->getMutex());
-    logInfo(RTPS_EDP, "");
+    logInfo(RTPS_EDP, "reader" << reader->getGuid());
     if (!computeKey(change))
     {
         logWarning(RTPS_EDP, "Received change with no Key");

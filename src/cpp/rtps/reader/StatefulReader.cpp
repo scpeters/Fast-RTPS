@@ -163,7 +163,7 @@ bool StatefulReader::matched_writer_add(
         }
     }
 
-    logInfo(RTPS_READER, "Writer Proxy " << wp->guid() << " added to " << m_guid.entityId);
+    logInfo(RTPS_READER, "Writer Proxy " << wp->guid() << " added to " << m_guid);
     return true;
 }
 

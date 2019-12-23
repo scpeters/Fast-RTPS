@@ -55,12 +55,12 @@ RTPSReader::RTPSReader(
     mp_history->mp_reader = this;
     mp_history->mp_mutex = &mp_mutex;
 
-    logInfo(RTPS_READER,"RTPSReader created correctly");
+    logInfo(RTPS_READER,"RTPSReader " << guid << " created correctly");
 }
 
 RTPSReader::~RTPSReader()
 {
-    logInfo(RTPS_READER,"Removing reader "<<this->getGuid().entityId;);
+    logInfo(RTPS_READER,"Removing reader " << this->getGuid());
     delete history_state_;
     mp_history->mp_reader = nullptr;
     mp_history->mp_mutex = nullptr;

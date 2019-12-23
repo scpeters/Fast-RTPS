@@ -425,7 +425,7 @@ bool StatelessWriter::matched_reader_add(const ReaderProxyData& data)
         mp_RTPSParticipant->async_thread().wake_up(this);
     }
 
-    logInfo(RTPS_READER,"Reader " << data.guid() << " added to "<<m_guid.entityId);
+    logInfo(RTPS_READER,"Reader " << data.guid() << " added to " << m_guid);
     return true;
 }
 

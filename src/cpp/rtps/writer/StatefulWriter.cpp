@@ -357,6 +357,8 @@ void StatefulWriter::send_any_unsent_changes()
     bool activateHeartbeatPeriod = false;
     SequenceNumber_t max_sequence = mp_history->next_sequence_number();
 
+    logInfo(RTPS_WRITER, "(ID:" << std::this_thread::get_id() <<") " << "[" << m_guid << "]");
+
     // Separate sending for asynchronous writers
     if (m_pushMode && m_separateSendingEnabled)
     {
@@ -765,7 +767,7 @@ bool StatefulWriter::matched_reader_add(const ReaderProxyData& rdata)
 
     matched_readers_.push_back(rp);
 
-    logInfo(RTPS_WRITER, "Reader Proxy "<< rp->guid()<< " added to " << this->m_guid.entityId << " with "
+    logInfo(RTPS_WRITER, "Reader Proxy "<< rp->guid()<< " added to " << this->m_guid << " with "
             << rp->reader_attributes().remote_locators().unicast.size()<<"(u)-"
             <<rp->reader_attributes().remote_locators().multicast.size()<<"(m) locators");
 
@@ -1263,6 +1265,8 @@ bool StatefulWriter::process_acknack(
         {
             if (remote_reader->guid() == reader_guid)
             {
+                logInfo(RTPS_WRITER, "" << m_guid << " ACKNACK from " << reader_guid);
+                
                 if (remote_reader->check_and_set_acknack_count(ack_count))
                 {
                     // Sequence numbers before Base are set as Acknowledged.

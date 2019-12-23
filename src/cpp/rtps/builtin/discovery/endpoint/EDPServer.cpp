@@ -78,7 +78,7 @@ bool EDPServer::createSEDPEndpoints()
         if(created)
         {
             publications_writer_.first = dynamic_cast<StatefulWriter*>(waux);
-            logInfo(RTPS_EDP,"SEDP Publication Writer created");
+            logInfo(RTPS_EDP,"SEDP " << mp_RTPSParticipant->getGuid().guidPrefix << "Publication Writer created");
         }
         else
         {
@@ -93,7 +93,7 @@ bool EDPServer::createSEDPEndpoints()
         if(created)
         {
             subscriptions_reader_.first = dynamic_cast<StatefulReader*>(raux);
-            logInfo(RTPS_EDP,"SEDP Subscription Reader created");
+            logInfo(RTPS_EDP,"SEDP " << mp_RTPSParticipant->getGuid().guidPrefix << "Subscription Reader created");
         }
         else
         {

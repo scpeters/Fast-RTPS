@@ -289,7 +289,7 @@ bool ReaderProxy::requested_changes_set(const SequenceNumberSet_t& seq_num_set)
 
     if (isSomeoneWasSetRequested)
     {
-        logInfo(RTPS_WRITER, "Requested Changes: " << seq_num_set);
+        logInfo(RTPS_WRITER, "[" << writer_->getGuid() << "] Reader " << reader_attributes_.guid() << " Requested Changes: " << seq_num_set);
     }
 
     return isSomeoneWasSetRequested;

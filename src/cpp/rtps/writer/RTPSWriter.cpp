@@ -56,12 +56,12 @@ RTPSWriter::RTPSWriter(
 {
     mp_history->mp_writer = this;
     mp_history->mp_mutex = &mp_mutex;
-    logInfo(RTPS_WRITER, "RTPSWriter created");
+    logInfo(RTPS_WRITER, "RTPSWriter " << guid << " created");
 }
 
 RTPSWriter::~RTPSWriter()
 {
-    logInfo(RTPS_WRITER, "RTPSWriter destructor");
+    logInfo(RTPS_WRITER, "RTPSWriter " << this->getGuid() << " destructor");
 
     // Deletion of the events has to be made in child destructor.
 

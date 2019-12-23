@@ -264,6 +264,9 @@ void RTPSMessageGroup::send()
 {
     CDRMessage_t* msgToSend = full_msg_;
 
+    logInfo(RTPS_WRITER,"(ID:" << std::this_thread::get_id() <<") " << "Send msg " 
+            << full_msg_->length << "(bytes)");
+            
     if(full_msg_->length > RTPSMESSAGE_HEADER_SIZE)
     {
 #if HAVE_SECURITY
