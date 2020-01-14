@@ -349,6 +349,12 @@ public:
         }
     }
 
+    bool register_instance(
+            type& msg)
+    {
+        return publisher_->register_instance((void*)&msg);
+    }
+
     bool send_sample(
             type& msg)
     {
@@ -661,6 +667,13 @@ public:
             const int32_t max)
     {
         publisher_attr_.topic.resourceLimitsQos.max_samples = max;
+        return *this;
+    }
+
+    PubSubWriter& resource_limits_max_instances(
+            const int32_t max)
+    {
+        publisher_attr_.topic.resourceLimitsQos.max_instances = max;
         return *this;
     }
 

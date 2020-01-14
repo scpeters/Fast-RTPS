@@ -21,19 +21,18 @@
 #include <dds/topic/DataWriterImpl.hpp>
 
 namespace eprosima {
-
-using namespace fastrtps;
-
 namespace fastdds {
 namespace dds {
 
 DataWriter::DataWriter(
         DataWriterImpl* impl)
     : impl_(impl)
-{}
+{
+}
 
 DataWriter::~DataWriter()
-{}
+{
+}
 
 bool DataWriter::write(
         void* data)
@@ -43,21 +42,28 @@ bool DataWriter::write(
 
 bool DataWriter::write(
         void* data,
-        rtps::WriteParams& params)
+        fastrtps::rtps::WriteParams& params)
 {
     return impl_->write(data, params);
 }
 
 ReturnCode_t DataWriter::write(
-            void* data,
-            const rtps::InstanceHandle_t& handle)
+        void* data,
+        const fastrtps::rtps::InstanceHandle_t& handle)
 {
     return impl_->write(data, handle);
 }
 
+ReturnCode_t DataWriter::register_instance(
+        void* key,
+        fastrtps::rtps::InstanceHandle_t& instance_handle)
+{
+    return impl_->register_instance(key, instance_handle);
+}
+
 ReturnCode_t DataWriter::dispose(
         void* data,
-        const rtps::InstanceHandle_t& handle)
+        const fastrtps::rtps::InstanceHandle_t& handle)
 {
     return impl_->dispose(data, handle);
 }
@@ -68,23 +74,23 @@ bool DataWriter::dispose(
     return impl_->dispose(data);
 }
 
-const rtps::GUID_t& DataWriter::guid()
+const fastrtps::rtps::GUID_t& DataWriter::guid()
 {
     return impl_->guid();
 }
 
-rtps::InstanceHandle_t DataWriter::get_instance_handle() const
+fastrtps::rtps::InstanceHandle_t DataWriter::get_instance_handle() const
 {
     return impl_->get_instance_handle();
 }
 
 bool DataWriter::set_attributes(
-        const rtps::WriterAttributes& att)
+        const fastrtps::rtps::WriterAttributes& att)
 {
     return impl_->set_attributes(att);
 }
 
-const rtps::WriterAttributes& DataWriter::get_attributes() const
+const fastrtps::rtps::WriterAttributes& DataWriter::get_attributes() const
 {
     return impl_->get_attributes();
 }
@@ -119,12 +125,12 @@ const DataWriterListener* DataWriter::get_listener() const
 }
 
 bool DataWriter::set_topic(
-        const TopicAttributes& att)
+        const fastrtps::TopicAttributes& att)
 {
     return impl_->set_topic(att);
 }
 
-const TopicAttributes& DataWriter::get_topic() const
+const fastrtps::TopicAttributes& DataWriter::get_topic() const
 {
     return impl_->get_topic();
 }
@@ -135,13 +141,13 @@ const Publisher* DataWriter::get_publisher() const
 }
 
 ReturnCode_t DataWriter::wait_for_acknowledgments(
-        const Duration_t &max_wait)
+        const fastrtps::Duration_t& max_wait)
 {
     return impl_->wait_for_acknowledgments(max_wait);
 }
 
 ReturnCode_t DataWriter::get_offered_deadline_missed_status(
-        OfferedDeadlineMissedStatus &status)
+        OfferedDeadlineMissedStatus& status)
 {
     return impl_->get_offered_deadline_missed_status(status);
 }

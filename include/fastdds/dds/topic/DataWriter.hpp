@@ -109,6 +109,16 @@ public:
             void* data,
             const fastrtps::rtps::InstanceHandle_t& handle);
 
+    /**!
+     * @brief
+     * @param key
+     * @param[out] instance_handle
+     * @return
+     */
+    ReturnCode_t register_instance(
+            void* key,
+            fastrtps::rtps::InstanceHandle_t& instance_handle);
+
     /**
      * Returns the DataWriter's GUID
      */
