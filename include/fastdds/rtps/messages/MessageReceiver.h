@@ -95,7 +95,7 @@ class MessageReceiver
         //!Version of the protocol used by the receiving end.
         ProtocolVersion_t destVersion;
 
-        uint16_t mMaxPayload_;
+        uint32_t mMaxPayload_;
 
 
         /**@name Processing methods.
