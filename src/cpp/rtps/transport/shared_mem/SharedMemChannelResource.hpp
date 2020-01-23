@@ -111,10 +111,11 @@ private:
     {
         fastrtps::rtps::Locator_t remote_locator;
 
+        // Blocking receive.
+        std::shared_ptr<SharedMemManager::Buffer> message;
+
         while (alive())
         {
-            // Blocking receive.
-            std::shared_ptr<SharedMemManager::Buffer> message;
 
             if (! (message = Receive(remote_locator)) )
             {
@@ -133,6 +134,9 @@ private:
             {
                 logWarning(RTPS_MSG_IN, "Received Message, but no receiver attached");
             }
+
+            // Forzes message release before waiting for the next
+            message.reset();
         }
 
         message_receiver(nullptr);

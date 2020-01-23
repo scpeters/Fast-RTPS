@@ -216,7 +216,8 @@ private:
 
 	std::shared_ptr<SharedMemManager::Buffer> copy_to_shared_buffer(
         const fastrtps::rtps::octet* send_buffer,
-        uint32_t send_buffer_size);
+        uint32_t send_buffer_size,
+		const std::chrono::steady_clock::time_point& max_blocking_time_point);
 
 	bool send(
 		const std::shared_ptr<SharedMemManager::Buffer>& buffer,

@@ -47,6 +47,16 @@ private:
     struct SegmentNode
     {
         std::atomic<uint32_t> ref_count;
+        SharedMemSegment::condition_variable allocator_waiting_cv;
+        SharedMemSegment::mutex allocator_waiting_mutex;
+
+        struct Space
+        {
+            uint32_t available;
+            uint32_t in_progress_allocation_required;
+        };
+
+        Space space;
     };
 
 public:
@@ -74,10 +84,12 @@ public:
         SharedMemBuffer(
                 std::shared_ptr<SharedMemSegment>& segment,
                 const SharedMemSegment::Id& segment_id,
-                BufferNode* buffer_node)
+                BufferNode* buffer_node,
+                SegmentNode* segment_node)
             : segment_(segment)
             , segment_id_(segment_id)
             , buffer_node_(buffer_node)
+            , segment_node_(segment_node)
         {
             increase_ref();
         }
@@ -107,14 +119,32 @@ public:
             return segment_id_;
         }
 
-        uint32_t increase_ref()
+        void increase_ref()
         {
-            return buffer_node_->ref_count.fetch_add(1);
+            buffer_node_->ref_count.fetch_add(1);
         }
 
-        uint32_t decrease_ref()
+        void decrease_ref()
         {
-            return buffer_node_->ref_count.fetch_sub(1);
+            uint32_t buffer_size = buffer_node_->data_size;
+
+            // Last reference to the buffer
+            if(buffer_node_->ref_count.fetch_sub(1) == 1)
+            {
+                std::unique_lock<SharedMemSegment::mutex> lock(segment_node_->allocator_waiting_mutex);
+
+                segment_node_->space.available += buffer_size;
+
+                // Allocator waiting for space && updated space >= required space => wake-up the allocator
+                if (segment_node_->space.in_progress_allocation_required != 0 &&
+                    segment_node_->space.available >= segment_node_->space.in_progress_allocation_required)
+                {
+                    segment_node_->space.in_progress_allocation_required = 0;
+                    lock.unlock();
+
+                    segment_node_->allocator_waiting_cv.notify_one();
+                }
+            }
         }
 
     private:
@@ -122,6 +152,7 @@ public:
         std::shared_ptr<SharedMemSegment> segment_;
         SharedMemSegment::Id segment_id_;
         BufferNode* buffer_node_;
+        SegmentNode* segment_node_;
     };
 
     /**
@@ -133,9 +164,10 @@ public:
     public:
 
         Segment(
-                uint32_t size)
+                uint32_t size, uint32_t payload_size)
             : segment_id_()
             , overflows_count_(0)
+            , max_payload_size_(payload_size)
         {
 			segment_id_.generate();
 
@@ -149,6 +181,7 @@ public:
             // Init the segment node
             segment_node_ = segment_->get().construct<SegmentNode>("segment_node")();
             segment_node_->ref_count.exchange(1);
+            segment_node_->space = {payload_size, 0};
         }
 
         ~Segment()
@@ -172,12 +205,27 @@ public:
         }
 
         std::shared_ptr<Buffer> alloc_buffer(
-                uint32_t size)
+                uint32_t size,
+                const std::chrono::steady_clock::time_point& max_blocking_time_point)
         {
             std::lock_guard<std::mutex> lock(alloc_mutex_);
+            
+            wait_and_reserve_avaible_space(size, max_blocking_time_point);
 
-            release_unused_buffers();
+            try
+            {
+                release_unused_buffers();
+            }
+            catch(const std::exception&)
+            {
+                {
+                    std::lock_guard<SharedMemSegment::mutex> lock(segment_node_->allocator_waiting_mutex);
+                    segment_node_->space.available += size;
+                }
 
+                throw;
+            }
+            
             void* data = nullptr;
             BufferNode* buffer_node = nullptr;
             std::shared_ptr<SharedMemBuffer> new_buffer;
@@ -189,15 +237,19 @@ public:
                 buffer_node->data_offset = segment_->get().get_handle_from_address(data);
                 buffer_node->data_size = size;
                 buffer_node->ref_count.store(0, std::memory_order_relaxed);
-
                 // TODO(Adolfo) : Dynamic allocation. Use foonathan to convert it to static allocation
-                new_buffer = std::make_shared<SharedMemBuffer>(segment_, segment_id_, buffer_node);
+                new_buffer = std::make_shared<SharedMemBuffer>(segment_, segment_id_, buffer_node, segment_node_);
 
                 // TODO(Adolfo) : Dynamic allocation. Use foonathan to convert it to static allocation
                 allocated_nodes_.push_back(buffer_node);
             }
             catch (const std::exception&)
             {
+                {
+                    std::lock_guard<SharedMemSegment::mutex> lock(segment_node_->allocator_waiting_mutex);
+                    segment_node_->space.available += size;
+                }
+
                 if (buffer_node)
                 {
                     release_buffer(buffer_node);
@@ -223,6 +275,7 @@ public:
         std::shared_ptr<SharedMemSegment> segment_;
         SharedMemSegment::Id segment_id_;
         uint64_t overflows_count_;
+        uint32_t max_payload_size_;
 
         void release_buffer(
                 BufferNode* buffer_node)
@@ -247,6 +300,42 @@ public:
                     node_it++;
                 }
             }
+        }
+
+        void wait_and_reserve_avaible_space(uint32_t size,
+                const std::chrono::steady_clock::time_point& max_blocking_time_point)
+        {
+            std::unique_lock<SharedMemSegment::mutex> lock(segment_node_->allocator_waiting_mutex);
+
+            // Not enough avaible space
+            if(segment_node_->space.available < size)
+            {
+                if(size > max_payload_size_)
+                {
+                    throw std::runtime_error("allocation too big");
+                }
+
+                segment_node_->space.in_progress_allocation_required = size;
+
+                std::chrono::microseconds timeout_usecs = 
+                    std::chrono::duration_cast<std::chrono::microseconds>
+                        (max_blocking_time_point - std::chrono::steady_clock::now());
+
+                // TODO(Adolfo): Could timed_wait have a problem if clock time is changed while waiting?
+                // Wait until enough available space or timeout
+                bool wait_ok = segment_node_->allocator_waiting_cv.timed_wait(lock, 
+                    boost::get_system_time() + boost::posix_time::microseconds(timeout_usecs.count()),
+                    [&]{ return segment_node_->space.available >= size; });
+
+                if(!wait_ok)
+                {
+                    segment_node_->space.in_progress_allocation_required = 0;
+                    throw std::runtime_error("allocation timeout");
+                }
+            }  
+
+            assert(segment_node_->space.available >= size);
+            segment_node_->space.available -= size;
         }
 
     }; // Segment
@@ -295,12 +384,13 @@ public:
 
             SharedMemGlobal::BufferDescriptor buffer_descriptor = head_cell->data();
 
-            auto segment = shared_mem_manager_.find_segment(buffer_descriptor.source_segment_id);
+            SegmentNode* segment_node;
+            auto segment = shared_mem_manager_.find_segment(buffer_descriptor.source_segment_id, &segment_node);
             auto buffer_node =
                     static_cast<BufferNode*>(segment->get_address_from_offset(buffer_descriptor.buffer_node_offset));
 
             // TODO(Adolfo) : Dynamic allocation. Use foonathan to convert it to static allocation
-            buffer_ref = std::make_shared<SharedMemBuffer>(segment, buffer_descriptor.source_segment_id, buffer_node);
+            buffer_ref = std::make_shared<SharedMemBuffer>(segment, buffer_descriptor.source_segment_id, buffer_node, segment_node);
 
             // If the cell has been read by all listeners
             global_port_->pop(*global_listener_, was_cell_freed);
@@ -409,7 +499,7 @@ public:
         uint32_t allocation_extra_size = sizeof(SegmentNode) + per_allocation_extra_size_ +
             max_allocations * ((sizeof(BufferNode) + per_allocation_extra_size_) + per_allocation_extra_size_);
 
-        return std::make_shared<Segment>(size + allocation_extra_size);
+        return std::make_shared<Segment>(size + allocation_extra_size, size);
     }
 
     std::shared_ptr<Port> open_port(
@@ -463,6 +553,7 @@ private:
         }
 
         std::shared_ptr<SharedMemSegment> segment() { return segment_; }
+        SegmentNode* segment_node() { return segment_node_; }
 
     private:
 
@@ -480,7 +571,8 @@ private:
     SharedMemGlobal global_segment_;
     
     std::shared_ptr<SharedMemSegment> find_segment(
-            SharedMemSegment::Id id)
+            SharedMemSegment::Id id,
+            SegmentNode** segment_node)
     {
         std::lock_guard<std::mutex> lock(ids_segments_mutex_);
 
@@ -490,12 +582,17 @@ private:
 
         try
         {
-            segment = ids_segments_.at(id.get()).segment();
+            SegmentWrapper& segment_wrapper = ids_segments_.at(id.get());
+            segment = segment_wrapper.segment();
+            *segment_node = segment_wrapper.segment_node();
         }
         catch (std::out_of_range&)
         {
             segment = std::make_shared<SharedMemSegment>(boost::interprocess::open_only, id.to_string());
-            ids_segments_[id.get()] = SegmentWrapper(segment, id);       
+            SegmentWrapper segment_wrapper(segment, id);       
+
+            *segment_node = segment_wrapper.segment_node();
+            ids_segments_[id.get()] = std::move(segment_wrapper);       
         }
 
         return segment;

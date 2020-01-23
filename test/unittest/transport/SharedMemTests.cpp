@@ -264,13 +264,13 @@ TEST_F(SharedMemTests, send_and_receive_between_ports)
     senderThread->join();
 }
 
-TEST_F(SharedMemTests, port_and_segment_overflow_fail)
+TEST_F(SharedMemTests, port_and_overflow_fail)
 {
     SharedMemTransportDescriptor my_descriptor;
 
     my_descriptor.port_overflow_policy = SharedMemTransportDescriptor::OverflowPolicy::FAIL;
     my_descriptor.segment_overflow_policy = SharedMemTransportDescriptor::OverflowPolicy::FAIL;
-    my_descriptor.segment_size = 16;
+    my_descriptor.segment_size = 32;
     my_descriptor.port_queue_capacity = 4;
 
     SharedMemTransport transportUnderTest(my_descriptor);
@@ -289,6 +289,89 @@ TEST_F(SharedMemTests, port_and_segment_overflow_fail)
     {
         is_first_message_received = true;
         sem.wait();
+    };
+    msg_recv->setCallback(recCallback);
+
+    Locator_t outputChannelLocator;
+    outputChannelLocator.kind = LOCATOR_KIND_SHMEM;
+    outputChannelLocator.port = g_default_port + 1;
+
+    SendResourceList send_resource_list;
+    ASSERT_TRUE(transportUnderTest.OpenOutputChannel(send_resource_list, outputChannelLocator));
+    ASSERT_FALSE(send_resource_list.empty());
+    octet message[4] = { 'H','e','l','l'};
+
+    LocatorList_t locator_list;
+    locator_list.push_back(unicastLocator);
+
+    // At least 4 msgs of 4 bytes are allowed
+    for(int i=0;i<4;i++)
+    {
+        Locators locators_begin(locator_list.begin());
+        Locators locators_end(locator_list.end());
+
+        // At least 4 msgs of 4 bytes are allowed
+        EXPECT_TRUE(send_resource_list.at(0)->send(message, sizeof(message), &locators_begin, &locators_end,
+            (std::chrono::steady_clock::now()+ std::chrono::milliseconds(100))));
+    }
+
+    // Wait until the receiver get the first message
+    while(!is_first_message_received)
+    {
+        std::this_thread::yield();
+    }
+
+    // The receiver has poped a message so now 3 messages are in the
+    // port's queue
+
+    // Push a 4th should go well
+    {
+        Locators locators_begin(locator_list.begin());
+        Locators locators_end(locator_list.end());
+
+        EXPECT_TRUE(send_resource_list.at(0)->send(message, sizeof(message), &locators_begin, &locators_end,
+            (std::chrono::steady_clock::now()+ std::chrono::milliseconds(100))));
+    } 
+
+    // Push a 5th will cause port overflow
+    {
+        Locators locators_begin(locator_list.begin());
+        Locators locators_end(locator_list.end());
+
+        EXPECT_FALSE(send_resource_list.at(0)->send(message, sizeof(message), &locators_begin, &locators_end,
+            (std::chrono::steady_clock::now()+ std::chrono::milliseconds(100))));
+    } 
+
+    sem.disable();
+}
+
+TEST_F(SharedMemTests, segment_overflow_wait)
+{
+    SharedMemTransportDescriptor my_descriptor;
+
+    my_descriptor.port_overflow_policy = SharedMemTransportDescriptor::OverflowPolicy::FAIL;
+    my_descriptor.segment_overflow_policy = SharedMemTransportDescriptor::OverflowPolicy::FAIL;
+    my_descriptor.segment_size = 16;
+    my_descriptor.port_queue_capacity = 5;
+
+    SharedMemTransport transportUnderTest(my_descriptor);
+    ASSERT_TRUE(transportUnderTest.init());
+
+    Locator_t unicastLocator;
+    unicastLocator.kind = LOCATOR_KIND_SHMEM;
+    unicastLocator.port = g_default_port;
+
+    MockReceiverResource receiver(transportUnderTest, unicastLocator);
+    MockMessageReceiver *msg_recv = dynamic_cast<MockMessageReceiver*>(receiver.CreateMessageReceiver());
+
+    Semaphore sem;
+    bool is_first_message_received = false;
+    std::function<void()> recCallback = [&]()
+    {
+        is_first_message_received = true;
+        sem.wait();
+        // 500(ms) delay relesesing the buffer to forze waiting in send
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     };
     msg_recv->setCallback(recCallback);
 
@@ -332,29 +415,35 @@ TEST_F(SharedMemTests, port_and_segment_overflow_fail)
         std::this_thread::yield();
     }
 
-    // The receiver has poped a message so now 3 messages are in the
-    // port's queue
+    // Push a 5th should wait because segment is full
+    {
+        Locators locators_begin(locator_list.begin());
+        Locators locators_end(locator_list.end());
 
-    // Push a 4th should go well
+        auto t1 = std::chrono::high_resolution_clock::now();
+
+        EXPECT_FALSE(send_resource_list.at(0)->send(message, sizeof(message), &locators_begin, &locators_end,
+            (std::chrono::steady_clock::now()+ std::chrono::milliseconds(5000))));
+
+        auto t2 = std::chrono::high_resolution_clock::now();
+
+        // Should have wait at least 5000(ms) for segment space
+        EXPECT_TRUE(std::chrono::duration_cast<std::chrono::milliseconds>(t2-t1).count() >= 1000);
+    } 
+
+    // Let the Listener process a message
+    sem.post();
+
+    // Now pushing a 5th will succed
     {
         Locators locators_begin(locator_list.begin());
         Locators locators_end(locator_list.end());
 
         EXPECT_TRUE(send_resource_list.at(0)->send(message, sizeof(message), &locators_begin, &locators_end,
-            (std::chrono::steady_clock::now()+ std::chrono::milliseconds(100))));
+            (std::chrono::steady_clock::now()+ std::chrono::milliseconds(1000))));
     } 
 
-    // Push a 5th will cause port overflow
-    {
-        Locators locators_begin(locator_list.begin());
-        Locators locators_end(locator_list.end());
-
-        EXPECT_FALSE(send_resource_list.at(0)->send(message, sizeof(message), &locators_begin, &locators_end,
-            (std::chrono::steady_clock::now()+ std::chrono::milliseconds(100))));
-    } 
-
-    sem.disable();
-        
+    sem.disable();       
 }
 
 TEST_F(SharedMemTests, port_and_segment_overflow_discard)
@@ -580,7 +669,7 @@ TEST_F(SharedMemTests, simple_latency)
 			{
 				auto recv_sample = listener_sub->pop();
 
-				auto sample_to_send = segment->alloc_buffer(sizeof(data));
+				auto sample_to_send = segment->alloc_buffer(sizeof(data), (std::chrono::steady_clock::now()+std::chrono::milliseconds(100)));
 				memcpy(sample_to_send->data(), data, sizeof(data));
 				ASSERT_TRUE(port_sub_to_pub->try_push(sample_to_send));
 			} while (--i);
@@ -604,7 +693,7 @@ TEST_F(SharedMemTests, simple_latency)
 			{
 				auto t0 = std::chrono::high_resolution_clock::now();
 
-				auto sample_to_send = segment->alloc_buffer(sizeof(data));
+				auto sample_to_send = segment->alloc_buffer(sizeof(data), (std::chrono::steady_clock::now()+std::chrono::milliseconds(100)));
 				memcpy(sample_to_send->data(), data, sizeof(data));
 				ASSERT_TRUE(port_pub_to_sub->try_push(sample_to_send));
 				sample_to_send.reset();
