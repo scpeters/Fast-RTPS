@@ -198,6 +198,7 @@ set(${PROJECT_NAME}_source_files
     rtps/persistence/PersistenceFactory.cpp
     fastrtps_deprecated/utils/TimedConditionVariable.cpp
 
+    dds/core/types.cpp
     dds/domain/DomainParticipant.cpp
     )
 
