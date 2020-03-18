@@ -423,6 +423,8 @@ public:
 
     RTPS_DllAPI virtual ~DomainParticipant();
 
+    bool has_active_entities();
+
 private:
 
     RTPS_DllAPI DomainParticipant(
