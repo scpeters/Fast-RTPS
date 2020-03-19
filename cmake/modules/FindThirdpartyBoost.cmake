@@ -19,6 +19,11 @@ else() # Posix
     set(THIRDPARTY_BOOST_LINK_LIBS ${CMAKE_THREAD_LIBS_INIT} rt)
 endif()
 
+# Forces C++11
+if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS "-std=c++11 ${CMAKE_CXX_FLAGS}")
+endif()
+
 try_compile(IS_THIRDPARTY_BOOST_OK
         ${CMAKE_BINARY_DIR}
         ${PROJECT_SOURCE_DIR}/thirdparty/boost/test/ThirdpartyBoostCompile_test.cpp
@@ -33,3 +38,4 @@ else()
     message(STATUS "Thirdparty/boost compiled OK")
     mark_as_advanced(THIRDPARTY_BOOST_INCLUDE_DIR)
 endif()
+~            
