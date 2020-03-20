@@ -47,10 +47,12 @@ namespace dds {
 class DomainParticipantFactoryReleaser
 {
 public:
+
     ~DomainParticipantFactoryReleaser()
     {
         DomainParticipantFactory::delete_instance();
     }
+
 };
 
 static bool g_instance_initialized = false;
@@ -125,7 +127,7 @@ ReturnCode_t DomainParticipantFactory::delete_participant(
         DomainParticipant* part)
 {
     using PartVectorIt = std::vector<DomainParticipantImpl*>::iterator;
-    using VectorIt = std::map<uint8_t, std::vector<DomainParticipantImpl*>>::iterator;
+    using VectorIt = std::map<uint8_t, std::vector<DomainParticipantImpl*> >::iterator;
 
     if (part->contains_entity(part->get_instance_handle()))
     {
@@ -142,7 +144,7 @@ ReturnCode_t DomainParticipantFactory::delete_participant(
             for (PartVectorIt pit = vit->second.begin(); pit != vit->second.end();)
             {
                 if ((*pit)->get_participant() == part
-                    || (*pit) ->get_participant()->guid() == part->guid())
+                        || (*pit)->get_participant()->guid() == part->guid())
                 {
                     delete (*pit);
                     PartVectorIt next_it = vit->second.erase(pit);
@@ -203,7 +205,7 @@ DomainParticipant* DomainParticipantFactory::create_participant(
 
     {
         std::lock_guard<std::mutex> guard(mtx_participants_);
-        using VectorIt = std::map<uint8_t, std::vector<DomainParticipantImpl*>>::iterator;
+        using VectorIt = std::map<uint8_t, std::vector<DomainParticipantImpl*> >::iterator;
         VectorIt vector_it = participants_.find(domain_id);
 
         if (vector_it == participants_.end())
@@ -219,9 +221,9 @@ DomainParticipant* DomainParticipantFactory::create_participant(
 
     part->set_check_type_function(
         [dom_part](const std::string& type_name) -> bool
-        {
-            return dom_part->find_type(type_name).get() != nullptr;
-        });
+                {
+                    return dom_part->find_type(type_name).get() != nullptr;
+                });
 
     return dom_part;
 }
@@ -241,7 +243,7 @@ DomainParticipant* DomainParticipantFactory::lookup_participant(
 }
 
 std::vector<DomainParticipant*> DomainParticipantFactory::lookup_participants(
-    uint8_t domain_id) const
+        uint8_t domain_id) const
 {
     std::lock_guard<std::mutex> guard(mtx_participants_);
 
@@ -273,15 +275,15 @@ ReturnCode_t DomainParticipantFactory::get_default_participant_qos(
 }
 
 /* TODO
-bool DomainParticipantFactory::set_default_participant_qos(
+   bool DomainParticipantFactory::set_default_participant_qos(
         const fastrtps::ParticipantAttributes &participant_qos)
-{
+   {
     // TODO XMLProfileManager::setDefault...
     (void)participant_qos;
     logError(DOMAIN_PARTICIPANT_FACTORY, "Not implemented.");
     return false;
-}
-*/
+   }
+ */
 
 bool DomainParticipantFactory::load_XML_profiles_file(
         const std::string& xml_profile_file)
@@ -298,6 +300,28 @@ bool DomainParticipantFactory::load_XML_profiles_file(
         return false;
     }
     return true;
+}
+
+ReturnCode_t DomainParticipantFactory::get_qos(
+        DomainParticipantFactoryQos& qos) const
+{
+    qos = factory_qos_;
+    return ReturnCode_t::RETCODE_OK;
+}
+
+ReturnCode_t DomainParticipantFactory::set_qos(
+        const DomainParticipantFactoryQos& qos)
+{
+    if (!qos.check_qos())
+    {
+        return ReturnCode_t::RETCODE_INCONSISTENT_POLICY;
+    }
+    if (!factory_qos_.can_qos_be_updated(qos))
+    {
+        return ReturnCode_t::RETCODE_IMMUTABLE_POLICY;
+    }
+    factory_qos_.set_qos(qos);
+    return ReturnCode_t::RETCODE_OK;
 }
 
 } /* namespace dds */

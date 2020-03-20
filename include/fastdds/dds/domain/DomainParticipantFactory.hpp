@@ -22,6 +22,7 @@
 
 #include <fastrtps/attributes/ParticipantAttributes.h>
 #include <fastrtps/types/TypesBase.h>
+#include <fastdds/dds/domain/qos/DomainParticipantFactoryQos.hpp>
 
 #include <mutex>
 #include <map>
@@ -88,16 +89,16 @@ public:
      * @return
      */
     RTPS_DllAPI std::vector<DomainParticipant*> lookup_participants(
-        uint8_t domain_id) const;
+            uint8_t domain_id) const;
 
     //!Fills participant_attributes with the default values.
     RTPS_DllAPI ReturnCode_t get_default_participant_qos(
             fastrtps::ParticipantAttributes& participant_qos) const;
 
     /* TODO
-    RTPS_DllAPI ReturnCode_t set_default_participant_qos(
+       RTPS_DllAPI ReturnCode_t set_default_participant_qos(
             const fastrtps::ParticipantAttributes& participant_qos);
-    */
+     */
 
     /**
      * Remove a Participant and all associated publishers and subscribers.
@@ -115,13 +116,33 @@ public:
     RTPS_DllAPI bool load_XML_profiles_file(
             const std::string& xml_profile_file);
 
-    // TODO set/get DomainParticipantFactoryQos
+    /**
+     * This operation returns the value of the DomainParticipantFactory QoS policies.
+     * @param qos
+     * @return ReturnCode
+     */
+    RTPS_DllAPI ReturnCode_t get_qos(
+            DomainParticipantFactoryQos& qos) const;
+
+    /**
+     * This operation sets the value of the DomainParticipantFactory QoS policies. These policies
+     * control the behavior of the object a factory for entities.
+     *
+     * Note that despite having QoS, the DomainParticipantFactory is not an Entity.
+     *
+     * This operation will check that the resulting policies are self consistent; if they are not,
+     * the operation will have no effect and return INCONSISTENT_POLICY.
+     * @param qos
+     * @return ReturnCode
+     */
+    RTPS_DllAPI ReturnCode_t set_qos(
+            const DomainParticipantFactoryQos& qos);
 
 private:
 
     friend class DomainParticipantFactoryReleaser;
 
-    std::map<uint8_t, std::vector<DomainParticipantImpl*>> participants_;
+    std::map<uint8_t, std::vector<DomainParticipantImpl*> > participants_;
 
     DomainParticipantFactory();
 
@@ -133,7 +154,7 @@ private:
 
     mutable bool default_xml_profiles_loaded;
 
-
+    DomainParticipantFactoryQos factory_qos_;
 };
 
 } /* namespace dds */
