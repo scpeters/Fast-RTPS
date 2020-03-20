@@ -40,6 +40,20 @@ void DomainParticipantQos::set_qos(
     }
 }
 
+bool DomainParticipantQos::check_qos() const
+{
+    //There is no restriction by the moment with the contained Qos
+    return true;
+}
+
+bool DomainParticipantQos::can_qos_be_updated(
+        const DomainParticipantQos& qos) const
+{
+    //All the DomainParticipantQos can be updated
+    (void) qos;
+    return true;
+}
+
 } /* namespace dds */
 } /* namespace fastdds */
 } /* namespace eprosima */
