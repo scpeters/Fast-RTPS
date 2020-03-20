@@ -86,6 +86,12 @@ private:
 
 public:
 
+    ReturnCode_t get_qos(
+            DomainParticipantQos& qos) const;
+
+    ReturnCode_t set_qos(
+            const DomainParticipantQos& qos);
+
     ReturnCode_t set_listener(
             DomainParticipantListener* listener)
     {
@@ -255,7 +261,7 @@ public:
      */
     inline const fastrtps::ParticipantAttributes& get_attributes() const
     {
-        return att_;
+        return qos_.participant_attr;
     }
 
     std::vector<std::string> get_participant_names() const;
@@ -293,8 +299,8 @@ public:
 
 private:
 
-    //!Participant Attributes
-    fastrtps::ParticipantAttributes att_;
+    //!Participant Qos
+    DomainParticipantQos qos_;
 
     //!RTPSParticipant
     fastrtps::rtps::RTPSParticipant* rtps_participant_;

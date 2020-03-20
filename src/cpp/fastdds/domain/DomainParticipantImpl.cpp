@@ -76,14 +76,14 @@ DomainParticipantImpl::DomainParticipantImpl(
         const ParticipantAttributes& patt,
         DomainParticipant* pspart,
         DomainParticipantListener* listen)
-    : att_(patt)
-    , rtps_participant_(nullptr)
+    : rtps_participant_(nullptr)
     , participant_(pspart)
     , listener_(listen)
 #pragma warning (disable : 4355 )
     , rtps_listener_(this)
 {
     participant_->impl_ = this;
+    qos_.participant_attr = patt;
 }
 
 DomainParticipantImpl::DomainParticipantImpl(
@@ -159,6 +159,28 @@ DomainParticipantImpl::~DomainParticipantImpl()
     participant_ = nullptr;
 }
 
+ReturnCode_t DomainParticipantImpl::set_qos(
+        const DomainParticipantQos& qos)
+{
+    if (!qos.check_qos())
+    {
+        return ReturnCode_t::RETCODE_INCONSISTENT_POLICY;
+    }
+    if (!qos_.can_qos_be_updated(qos))
+    {
+        return ReturnCode_t::RETCODE_IMMUTABLE_POLICY;
+    }
+    qos_.set_qos(qos);
+    return ReturnCode_t::RETCODE_OK;
+}
+
+ReturnCode_t DomainParticipantImpl::get_qos(
+        DomainParticipantQos& qos) const
+{
+    qos = qos_;
+    return ReturnCode_t::RETCODE_OK;
+}
+
 ReturnCode_t DomainParticipantImpl::delete_publisher(
         Publisher* pub)
 {
@@ -226,7 +248,7 @@ Publisher* DomainParticipantImpl::create_publisher(
         const fastrtps::PublisherAttributes& att,
         PublisherListener* listen)
 {
-    if (att_.rtps.builtin.discovery_config.use_STATIC_EndpointDiscoveryProtocol)
+    if (qos_.participant_attr.rtps.builtin.discovery_config.use_STATIC_EndpointDiscoveryProtocol)
     {
         if (att.getUserDefinedID() <= 0)
         {
@@ -338,7 +360,7 @@ Publisher* DomainParticipantImpl::create_publisher(
 
 DomainId_t DomainParticipantImpl::get_domain_id() const
 {
-    return att_.rtps.builtin.domainId;
+    return qos_.participant_attr.rtps.builtin.domainId;
 }
 
 /* TODO
@@ -514,7 +536,7 @@ Subscriber* DomainParticipantImpl::create_subscriber(
         const fastrtps::SubscriberAttributes& att,
         SubscriberListener* listen)
 {
-    if (att_.rtps.builtin.discovery_config.use_STATIC_EndpointDiscoveryProtocol)
+    if (qos_.participant_attr.rtps.builtin.discovery_config.use_STATIC_EndpointDiscoveryProtocol)
     {
         if (att.getUserDefinedID() <= 0)
         {
