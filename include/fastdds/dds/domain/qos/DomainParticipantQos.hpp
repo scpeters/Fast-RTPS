@@ -48,17 +48,10 @@ public:
     bool operator ==(
             const DomainParticipantQos& b) const
     {
-        return (this->user_data == b.user_data) &&
-               (this->entity_factory == b.entity_factory);
+        return (this->user_data_ == b.user_data()) &&
+               (this->entity_factory_ == b.entity_factory()) &&
+               (this->participant_attr == b.participant_attr);
     }
-
-    fastrtps::ParticipantAttributes participant_attr;
-
-    //!UserData Qos, NOT implemented in the library.
-    UserDataQosPolicy user_data;
-
-    //!Auto enable on creation
-    EntityFactoryQosPolicy entity_factory;
 
     /**
      * Set Qos from another class
@@ -66,6 +59,72 @@ public:
      */
     RTPS_DllAPI void set_qos(
             const DomainParticipantQos& qos);
+
+    /**
+     * Check if the Qos values are compatible between each other.
+     * @return True if correct.
+     */
+    RTPS_DllAPI bool check_qos() const;
+
+    /**
+     * Check if the Qos can be update with the values provided. This method DOES NOT update anything.
+     * @param qos Reference to the new qos.
+     * @return True if they can be updated.
+     */
+    RTPS_DllAPI bool can_qos_be_updated(
+            const DomainParticipantQos& qos) const;
+
+    /**
+     * Getter for UserDataQosPolicy
+     * @return UserDataQosPolicy reference
+     */
+    const UserDataQosPolicy& user_data() const
+    {
+        return user_data_;
+    }
+
+    /**
+     * Setter for UserDataQosPolicy
+     * @param value
+     */
+    void user_data(
+            const UserDataQosPolicy& value)
+    {
+        user_data_ = value;
+        user_data_.hasChanged = true;
+    }
+
+    /**
+     * Getter for EntityFactoryQosPolicy
+     * @return EntityFactoryQosPolicy reference
+     */
+    const EntityFactoryQosPolicy& entity_factory() const
+    {
+        return entity_factory_;
+    }
+
+    /**
+     * Setter for EntityFactoryQosPolicy
+     * @param value
+     */
+    void entity_factory(
+            const EntityFactoryQosPolicy& value)
+    {
+        entity_factory_ = value;
+        entity_factory_.hasChanged = true;
+    }
+
+    //!Participant Attributes
+    fastrtps::ParticipantAttributes participant_attr;
+
+private:
+
+    //!UserData Qos, NOT implemented in the library.
+    UserDataQosPolicy user_data_;
+
+    //!Auto enable on creation
+    EntityFactoryQosPolicy entity_factory_;
+
 
 };
 

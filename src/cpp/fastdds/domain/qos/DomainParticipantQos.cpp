@@ -28,16 +28,30 @@ const DomainParticipantQos PARTICIPANT_QOS_DEFAULT;
 void DomainParticipantQos::set_qos(
         const DomainParticipantQos& qos)
 {
-    if (entity_factory.autoenable_created_entities != qos.entity_factory.autoenable_created_entities)
+    if (entity_factory_.autoenable_created_entities != qos.entity_factory().autoenable_created_entities)
     {
-        entity_factory = qos.entity_factory;
-        entity_factory.hasChanged = true;
+        entity_factory_ = qos.entity_factory();
+        entity_factory_.hasChanged = true;
     }
-    if (user_data.data_vec() != qos.user_data.data_vec())
+    if (user_data_.data_vec() != qos.user_data().data_vec())
     {
-        user_data = qos.user_data;
-        user_data.hasChanged = true;
+        user_data_ = qos.user_data();
+        user_data_.hasChanged = true;
     }
+}
+
+bool DomainParticipantQos::check_qos() const
+{
+    //There is no restriction by the moment with the contained Qos
+    return true;
+}
+
+bool DomainParticipantQos::can_qos_be_updated(
+        const DomainParticipantQos& qos) const
+{
+    //All the DomainParticipantQos can be updated
+    (void) qos;
+    return true;
 }
 
 } /* namespace dds */
