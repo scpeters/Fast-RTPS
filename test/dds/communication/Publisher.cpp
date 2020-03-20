@@ -238,10 +238,10 @@ int main(
 
     xmlparser::XMLProfileManager::loadXMLFile("example_type.xml");
 
-    ParticipantAttributes participant_attributes;
-    DomainParticipantFactory::get_instance()->get_default_participant_qos(participant_attributes);
-    participant_attributes.rtps.builtin.typelookup_config.use_server = true;
-    participant_attributes.rtps.builtin.domainId = seed % 230;
+    DomainParticipantQos participant_qos = PARTICIPANT_QOS_DEFAULT;
+    DomainParticipantFactory::get_instance()->get_default_participant_qos(participant_qos);
+    participant_qos.participant_attr.rtps.builtin.typelookup_config.use_server = true;
+    participant_qos.participant_attr.rtps.builtin.domainId = seed % 230;
     ParListener participant_listener(exit_on_lost_liveliness);
     DomainParticipant* participant =
             DomainParticipantFactory::get_instance()->create_participant(participant_attributes, &participant_listener);
