@@ -38,4 +38,3 @@ else()
     message(STATUS "Thirdparty/boost compiled OK")
     mark_as_advanced(THIRDPARTY_BOOST_INCLUDE_DIR)
 endif()
-~            
