@@ -22,6 +22,8 @@
 #include <fastdds/dds/log/Colors.hpp>
 #include <fastrtps/xmlparser/XMLProfileManager.h>
 
+#include <fastdds/dds/log/DbgTimeUtil.h>
+
 using namespace eprosima::fastrtps;
 using namespace eprosima::fastrtps::rtps;
 using namespace eprosima::fastrtps::types;
@@ -217,7 +219,7 @@ bool LatencyTestSubscriber::init(
 
     if (xml_config_file_.length() > 0)
     {
-        data_subscriber_ = Domain::createSubscriber(participant_, profile_name, &this->data_sub_listener_);
+        data_subscriber_ = Domain::createSubscriber(participant_, profile_name/*, &this->data_sub_listener_*/);
     }
     else
     {
@@ -400,6 +402,23 @@ void LatencyTestSubscriber::CommandSubListener::onNewDataMessage(
     }
 }
 
+void LatencyTestSubscriber::sub_listener_thread(bool* kill_sub_listener_thread)
+{
+    while (!*kill_sub_listener_thread)
+    {
+        if (data_subscriber_->wait_for_unread_samples({1,0}))
+        {
+            while (data_subscriber_->takeNextData((void*)latency_type_, &sample_info_))
+            {
+                if (echo_)
+                {
+                    data_publisher_->write((void*)latency_type_);
+                }
+            }
+        }
+    }
+}
+
 void LatencyTestSubscriber::DataSubListener::onNewDataMessage(
         Subscriber* subscriber)
 {
@@ -414,6 +433,7 @@ void LatencyTestSubscriber::DataSubListener::onNewDataMessage(
     else
     {
         subscriber->takeNextData((void*)latency_publisher_->latency_type_, &latency_publisher_->sample_info_);
+
         if (latency_publisher_->echo_)
         {
             latency_publisher_->data_publisher_->write((void*)latency_publisher_->latency_type_);
@@ -425,12 +445,12 @@ void LatencyTestSubscriber::run()
 {
     // WAIT FOR THE DISCOVERY PROCESS FO FINISH:
     // EACH SUBSCRIBER NEEDS 4 Matchings (2 publishers and 2 subscribers)
-    std::unique_lock<std::mutex> disc_lock(mutex_);
+    /*std::unique_lock<std::mutex> disc_lock(mutex_);
     while (discovery_count_ != 4)
     {
         discovery_cv_.wait(disc_lock);
     }
-    disc_lock.unlock();
+    disc_lock.unlock();*/
 
     std::cout << C_B_MAGENTA << "Sub: DISCOVERY COMPLETE " << C_DEF << std::endl;
 
@@ -447,6 +467,10 @@ bool LatencyTestSubscriber::test(
         uint32_t datasize)
 {
     std::cout << "Preparing test with data size: " << datasize + 4 << std::endl;
+
+    kill_sub_listener_thread_ = false;
+    sub_listener_thread_ = std::thread(&LatencyTestSubscriber::sub_listener_thread, this, &kill_sub_listener_thread_);
+
     if (dynamic_data_)
     {
         dynamic_data_type_ = DynamicDataFactory::get_instance()->create_data(dynamic_type_);
@@ -502,6 +526,9 @@ bool LatencyTestSubscriber::test(
     {
         delete(latency_type_);
     }
+
+    kill_sub_listener_thread_ = true;
+    sub_listener_thread_.join();
 
     if (test_status_ == -1)
     {

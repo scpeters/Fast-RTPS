@@ -7,6 +7,23 @@
 #include <fastdds/dds/log/Colors.hpp>
 #include <iostream>
 
+DbgTime g_dbg_time;
+
+#ifdef _WIN32
+__declspec(dllexport) DbgTime* __cdecl get_dbg_time()
+#else
+DbgTime* get_dbg_time()
+#endif
+{
+    return &g_dbg_time;
+}
+
+DbgTime* dbg_time()
+{
+    return &g_dbg_time;
+}
+
+
 using namespace std;
 namespace eprosima {
 namespace fastdds {

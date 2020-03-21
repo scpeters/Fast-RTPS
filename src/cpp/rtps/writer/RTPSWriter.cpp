@@ -90,6 +90,7 @@ CacheChange_t* RTPSWriter::new_change(
     }
     ch->instanceHandle = handle;
     ch->writerGUID = m_guid;
+
     return ch;
 }
 

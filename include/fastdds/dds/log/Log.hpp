@@ -23,6 +23,9 @@
 #include <atomic>
 #include <regex>
 
+#include <fastdds/dds/log/DbgTime.hpp>
+DbgTime* dbg_time();
+
 /**
  * eProsima log layer. Logging categories and verbosities can be specified dynamically at runtime. However, even on a category
  * not covered by the current verbosity level, there is some overhead on calling a log macro. For maximum performance, you can

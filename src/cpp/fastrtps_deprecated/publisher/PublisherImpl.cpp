@@ -105,6 +105,13 @@ bool PublisherImpl::create_new_change(
         ChangeKind_t changeKind,
         void* data)
 {
+uint32_t data_size = mp_type->getSerializedSizeProvider(data)();
+if (data_size > 1024 * 1024)
+{
+    DBGT->set_thread_filter_to_this();
+    DBGT_SET(create_new_change0, DBGTCK::now());
+}
+
     WriteParams wparams;
     return create_new_change_with_params(changeKind, data, wparams);
 }
@@ -158,6 +165,7 @@ bool PublisherImpl::create_new_change_with_params(
         {
             if (changeKind == ALIVE)
             {
+ auto t0 = DBGTCK::now();
                 //If these two checks are correct, we asume the cachechange is valid and thwn we can write to it.
                 if (!mp_type->serialize(data, &ch->serializedPayload))
                 {
@@ -165,6 +173,7 @@ bool PublisherImpl::create_new_change_with_params(
                     m_history.release_Cache(ch);
                     return false;
                 }
+DBGT_COUNT_DIFF(serialize, t0, DBGTCK::now());
             }
 
             //TODO(Ricardo) This logic in a class. Then a user of rtps layer can use it.

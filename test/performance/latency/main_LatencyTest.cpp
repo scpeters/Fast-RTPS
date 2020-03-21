@@ -25,6 +25,7 @@
 #include <fstream>
 
 #include <fastdds/dds/log/Log.hpp>
+#include <fastdds/dds/log/DbgTimeUtil.h>
 #include <fastrtps/Domain.h>
 #include <fastrtps/fastrtps_dll.h>
 #include <fastrtps/xmlparser/XMLProfileManager.h>

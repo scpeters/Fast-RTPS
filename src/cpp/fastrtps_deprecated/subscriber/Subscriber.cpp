@@ -41,7 +41,18 @@ bool Subscriber::readNextData(void* data,SampleInfo_t* info)
 }
 bool Subscriber::takeNextData(void* data,SampleInfo_t* info)
 {
-    return mp_impl->takeNextData(data,info);
+auto t0 = DBGTCK::now();
+    auto ret = mp_impl->takeNextData(data, info);
+if (ret)
+{
+    DBGT_COUNT_DIFF(take_next_data, t0, DBGTCK::now());
+}
+else
+{
+    DBGT_COUNT_DIFF(take_next_data_fails, t0, DBGTCK::now());
+}
+    return ret;
+
 }
 
 bool Subscriber::updateAttributes(const SubscriberAttributes& att)

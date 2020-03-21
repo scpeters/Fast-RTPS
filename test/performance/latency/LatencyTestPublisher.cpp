@@ -22,6 +22,8 @@
 #include <fastdds/dds/log/Colors.hpp>
 #include <fastrtps/xmlparser/XMLProfileManager.h>
 
+#include <fastdds/dds/log/DbgTimeUtil.h>
+
 #include <numeric>
 #include <cmath>
 #include <fstream>

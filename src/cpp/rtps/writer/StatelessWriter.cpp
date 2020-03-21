@@ -314,6 +314,12 @@ bool StatelessWriter::intraprocess_delivery(
         CacheChange_t* change,
         ReaderLocator& reader_locator)
 {
+
+if(change->serializedPayload.length > 1024 * 1024)
+{
+    DBGT_SET(intraprocess_delivery0, DBGTCK::now());
+}
+
     RTPSReader* reader = reader_locator.local_reader();
 
     if (reader)
@@ -322,7 +328,10 @@ bool StatelessWriter::intraprocess_delivery(
         {
             change->write_params.sample_identity(change->write_params.related_sample_identity());
         }
-        return reader->processDataMsg(change);
+        auto ret = reader->processDataMsg(change);
+
+        return ret;
+        //return reader->processDataMsg(change);
     }
 
     return false;

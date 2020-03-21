@@ -157,6 +157,10 @@ SequenceNumber_t RTPSReader::update_last_notified(
     if (ret_val < seq)
     {
         set_last_notified(guid_to_look, seq);
+auto t0 = DBGTCK::now();
+DBGT_SET(notify_wait_for_unread_cache_, t0);
+DBGT_COUNT_DIFF(intraprocess_delivery, DBGT->intraprocess_delivery0, t0);
+DBGT_COUNT_DIFF(create_new_change, DBGT->create_new_change0, t0);
         new_notification_cv_.notify_all();
     }
 
@@ -206,6 +210,8 @@ bool RTPSReader::wait_for_unread_cache(
                         return total_unread_ > 0;
                     }))
         {
+ DBGT->set_thread_filter_to_this();
+ DBGT_COUNT_DIFF_FORCE(notify_wait_for_unread_cache, DBGT->notify_wait_for_unread_cache_, DBGTCK::now());
             return true;
         }
     }

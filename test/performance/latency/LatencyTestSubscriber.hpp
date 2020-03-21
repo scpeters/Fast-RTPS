@@ -66,6 +66,10 @@ public:
     eprosima::fastrtps::Subscriber* data_subscriber_;
     eprosima::fastrtps::Subscriber* command_subscriber_;
 
+    std::thread sub_listener_thread_;
+    bool kill_sub_listener_thread_;
+    void sub_listener_thread(bool* kill_sub_listener_thread);
+    
     /* Data */
     eprosima::fastrtps::SampleInfo_t sample_info_;
     int received_;

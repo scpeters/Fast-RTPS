@@ -237,6 +237,9 @@ void SubscriberImpl::SubscriberReaderListener::onNewCacheChangeAdded(
 {
     if (mp_subscriberImpl->onNewCacheChangeAdded(change_in))
     {
+/*auto t0 = DBGTCK::now();
+DBGT_COUNT_DIFF(intraprocess_delivery, DBGT->intraprocess_delivery0, t0);
+DBGT_COUNT_DIFF(create_new_change, DBGT->create_new_change0, t0);*/
         if(mp_subscriberImpl->mp_listener != nullptr)
         {
             //cout << "FIRST BYTE: "<< (int)change->serializedPayload.data[0] << endl;
