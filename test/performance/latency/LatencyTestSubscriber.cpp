@@ -408,7 +408,8 @@ void LatencyTestSubscriber::sub_listener_thread(bool* kill_sub_listener_thread)
     {
         if (data_subscriber_->wait_for_unread_samples({1,0}))
         {
-            while (data_subscriber_->takeNextData((void*)latency_type_, &sample_info_))
+            uint32_t untaken_samples = 1;
+            while (untaken_samples > 0 && data_subscriber_->takeNextData((void*)latency_type_, &sample_info_), &untaken_samples)
             {
                 if (echo_)
                 {

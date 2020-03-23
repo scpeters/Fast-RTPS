@@ -140,7 +140,9 @@ SequenceNumber_t RTPSReader::update_last_notified(
         const SequenceNumber_t& seq)
 {
     SequenceNumber_t ret_val;
-    std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
+    //std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
+    std::unique_lock<RecursiveTimedMutex> guard(mp_mutex);
+
     GUID_t guid_to_look = guid;
     auto p_guid = history_state_->persistence_guid_map.find(guid);
     if (p_guid != history_state_->persistence_guid_map.end())
@@ -161,6 +163,7 @@ auto t0 = DBGTCK::now();
 DBGT_SET(notify_wait_for_unread_cache_, t0);
 DBGT_COUNT_DIFF(intraprocess_delivery, DBGT->intraprocess_delivery0, t0);
 DBGT_COUNT_DIFF(create_new_change, DBGT->create_new_change0, t0);
+        guard.unlock();
         new_notification_cv_.notify_all();
     }
 

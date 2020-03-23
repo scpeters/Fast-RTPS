@@ -348,11 +348,22 @@ bool SubscriberHistory::readNextData(
     return false;
 }
 
-
 bool SubscriberHistory::takeNextData(
         void* data,
         SampleInfo_t* info,
         std::chrono::steady_clock::time_point& max_blocking_time)
+{
+    uint32_t untaken_samples;
+    return takeNextData(data, info, max_blocking_time, &untaken_samples);
+}
+
+
+
+bool SubscriberHistory::takeNextData(
+        void* data,
+        SampleInfo_t* info,
+        std::chrono::steady_clock::time_point& max_blocking_time,
+        uint32_t* untaken_samples)
 {
     if (mp_reader == nullptr || mp_mutex == nullptr)
     {
@@ -366,7 +377,7 @@ bool SubscriberHistory::takeNextData(
     {
         CacheChange_t* change = nullptr;
         WriterProxy* wp = nullptr;
-        if (mp_reader->nextUntakenCache(&change, &wp))
+        if (mp_reader->nextUntakenCache(&change, untaken_samples, &wp))
         {
             logInfo(SUBSCRIBER, mp_reader->getGuid().entityId << ": taking seqNum" << change->sequenceNumber <<
                     " from writer: " << change->writerGUID);

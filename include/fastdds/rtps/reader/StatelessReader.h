@@ -158,6 +158,7 @@ public:
      */
     bool nextUntakenCache(
             CacheChange_t** change,
+            uint32_t* total_unread,
             WriterProxy** wpout = nullptr) override;
 
     /**

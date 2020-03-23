@@ -798,6 +798,7 @@ void StatefulReader::NotifyChanges(
 
 bool StatefulReader::nextUntakenCache(
         CacheChange_t** change,
+        uint32_t* total_unread,
         WriterProxy** wpout)
 {
     std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
@@ -853,6 +854,9 @@ bool StatefulReader::nextUntakenCache(
                 " because is no longer paired");
         mp_history->remove_change(*it);
     }
+
+    *total_unread = total_unread_;
+
     return takeok;
 }
 

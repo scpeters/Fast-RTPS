@@ -88,6 +88,12 @@ class SubscriberHistory: public rtps::ReaderHistory
         bool takeNextData(
                 void* data,
                 SampleInfo_t* info,
+                std::chrono::steady_clock::time_point& max_blocking_time,
+                uint32_t* untaken_samples);
+
+        bool takeNextData(
+                void* data,
+                SampleInfo_t* info,
                 std::chrono::steady_clock::time_point& max_blocking_time);
         ///@}
 

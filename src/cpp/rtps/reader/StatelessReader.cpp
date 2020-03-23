@@ -178,6 +178,7 @@ bool StatelessReader::change_received(
 
 bool StatelessReader::nextUntakenCache(
         CacheChange_t** change,
+        uint32_t* total_unread,
         WriterProxy** /*wpout*/)
 {
     std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
@@ -195,6 +196,8 @@ bool StatelessReader::nextUntakenCache(
 
         (*change)->isRead = true;
     }
+
+    *total_unread = total_unread_;
 
     return ret;
 }

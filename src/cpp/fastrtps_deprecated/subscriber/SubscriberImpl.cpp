@@ -119,6 +119,18 @@ bool SubscriberImpl::takeNextData(void* data,SampleInfo_t* info)
     return this->m_history.takeNextData(data, info, max_blocking_time);
 }
 
+bool SubscriberImpl::takeNextData(void* data,SampleInfo_t* info, uint32_t* untaken_samples)
+{
+    auto max_blocking_time = std::chrono::steady_clock::now() +
+#if HAVE_STRICT_REALTIME
+        std::chrono::microseconds(::TimeConv::Time_t2MicroSecondsInt64(m_att.qos.m_reliability.max_blocking_time));
+#else
+        std::chrono::hours(24);
+#endif
+    return this->m_history.takeNextData(data, info, max_blocking_time, untaken_samples);
+}
+
+
 const GUID_t& SubscriberImpl::getGuid()
 {
     return mp_reader->getGuid();

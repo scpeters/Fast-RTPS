@@ -101,6 +101,11 @@ public:
             void* sample,
             SampleInfo_t* info);
 
+    bool takeNextData(
+            void* data,
+            SampleInfo_t* info, 
+            uint32_t* untaken_samples);
+
     /**
      * Update the Attributes of the subscriber;
      * @param att Reference to a SubscriberAttributes object to update the parameters;

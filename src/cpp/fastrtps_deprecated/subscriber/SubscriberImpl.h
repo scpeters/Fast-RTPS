@@ -84,6 +84,7 @@ class SubscriberImpl
 
     bool readNextData(void* data,SampleInfo_t* info);
     bool takeNextData(void* data,SampleInfo_t* info);
+    bool takeNextData(void* data,SampleInfo_t* info, uint32_t* untaken_samples);
 
     ///@}
 

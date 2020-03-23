@@ -204,6 +204,7 @@ public:
      */
     RTPS_DllAPI virtual bool nextUntakenCache(
             CacheChange_t** change,
+            uint32_t* total_unread,
             WriterProxy** wp) = 0;
 
     RTPS_DllAPI bool wait_for_unread_cache(
