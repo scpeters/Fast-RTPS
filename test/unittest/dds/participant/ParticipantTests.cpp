@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
+#include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <dds/domain/DomainParticipant.hpp>
 #include <dds/core/types.hpp>
 
@@ -37,6 +38,17 @@ TEST(ParticipantTests, CreatePSMDomainParticipant)
     participant = ::dds::domain::DomainParticipant(0, PARTICIPANT_QOS_DEFAULT);
 
     ASSERT_NE(participant, ::dds::core::null);
+
+}
+
+TEST(ParticipantTests, GetCurrentTime)
+{
+    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(0);
+    fastrtps::Time_t t1, t2;
+    participant->get_current_time(t1);
+    participant->get_current_time(t2);
+    ASSERT_NE(t1, t2);
+    ASSERT_GT(t2, t1);
 
 }
 
