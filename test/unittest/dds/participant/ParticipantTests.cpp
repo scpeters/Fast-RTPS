@@ -19,6 +19,7 @@
 #include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <fastdds/dds/domain/DomainParticipantListener.hpp>
 #include <dds/domain/DomainParticipant.hpp>
+#include <dds/domain/DomainParticipantListener.hpp>
 #include <dds/core/types.hpp>
 
 namespace eprosima {
@@ -54,6 +55,21 @@ TEST(ParticipantTests, DomainParticipantListenerMethods)
     ASSERT_EQ(listener, participant->get_listener());
 
 }
+
+
+TEST(ParticipantTests, DomainParticipantPSMListenerMethods)
+{
+    ::dds::domain::DomainParticipant participant = ::dds::domain::DomainParticipant(0, PARTICIPANT_QOS_DEFAULT);
+
+    ASSERT_EQ(participant.listener(), nullptr);
+
+    ::dds::domain::DomainParticipantListener* listener;
+    participant.listener(listener, ::dds::core::status::StatusMask::all());
+
+    ASSERT_EQ(listener, participant.listener());
+
+}
+
 
 } // namespace dds
 } // namespace fastdds
