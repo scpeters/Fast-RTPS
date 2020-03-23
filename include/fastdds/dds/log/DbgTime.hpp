@@ -55,6 +55,7 @@ public:
         intraprocess_delivery,
         notify_wait_for_unread_cache,
         take_next_data,
+        take_next_data_deserialize,
         take_next_data_fails,
         TB_UPPERBOUND
     };
@@ -76,10 +77,11 @@ public:
     {
         static const char* names[] = {
             "create_new_change", 
-            "serialize",
-            "intraprocess_delivery",
+            "->serialize",
+            "->intraprocess_delivery",
             "notify_wait_for_unread_cache",
             "take_next_data",
+            "->take_next_data_deserialize",
             "take_next_data_fails"
         };
 

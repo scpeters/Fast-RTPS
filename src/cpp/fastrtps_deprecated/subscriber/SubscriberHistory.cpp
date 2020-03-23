@@ -383,7 +383,9 @@ bool SubscriberHistory::takeNextData(
                     " from writer: " << change->writerGUID);
             uint32_t ownership = wp && qos_.m_ownership.kind == EXCLUSIVE_OWNERSHIP_QOS ?
                     wp->ownership_strength() : 0;
+auto t0 = DBGTCK::now();
             bool deserialized = deserialize_change(change, ownership, data, info);
+DBGT_COUNT_DIFF(take_next_data_deserialize, t0, DBGTCK::now());
             bool removed = remove_change_sub(change);
             return (deserialized && removed);
         }
