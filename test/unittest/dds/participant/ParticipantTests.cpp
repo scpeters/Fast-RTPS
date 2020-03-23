@@ -40,6 +40,15 @@ TEST(ParticipantTests, CreatePSMDomainParticipant)
 
 }
 
+TEST(ParticipantTests, DomainId)
+{
+    DomainId_t id = 2;
+
+    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(id);
+
+    ASSERT_EQ(participant->get_domain_id(), id);
+}
+
 } // namespace dds
 } // namespace fastdds
 } // namespace eprosima
