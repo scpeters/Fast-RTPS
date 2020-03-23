@@ -49,6 +49,16 @@ TEST(ParticipantTests, DomainId)
     ASSERT_EQ(participant->get_domain_id(), id);
 }
 
+
+TEST(ParticipantTests, PSMDomainId)
+{
+    uint32_t id = 8;
+
+    ::dds::domain::DomainParticipant participant = ::dds::domain::DomainParticipant(id, PARTICIPANT_QOS_DEFAULT);
+
+    ASSERT_EQ(participant.domain_id(), id);
+}
+
 } // namespace dds
 } // namespace fastdds
 } // namespace eprosima
