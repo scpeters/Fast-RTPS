@@ -18,6 +18,7 @@
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
 #include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <dds/domain/DomainParticipant.hpp>
+#include <dds/domain/qos/DomainParticipantQos.hpp>
 #include <dds/core/types.hpp>
 
 namespace eprosima {
@@ -53,6 +54,26 @@ TEST(ParticipantTests, ChangeDomainParticipantQos)
     ASSERT_TRUE(participant->set_qos(qos) == ReturnCode_t::RETCODE_OK);
     DomainParticipantQos pqos;
     participant->get_qos(pqos);
+
+    ASSERT_NE(pqos, PARTICIPANT_QOS_DEFAULT);
+    ASSERT_EQ(qos, pqos);
+    ASSERT_EQ(qos.entity_factory.autoenable_created_entities, false);
+
+}
+
+
+TEST(ParticipantTests, ChangePSMDomainParticipantQos)
+{
+    ::dds::domain::DomainParticipant participant = ::dds::core::null;
+    participant = ::dds::domain::DomainParticipant(0, PARTICIPANT_QOS_DEFAULT);
+    ::dds::domain::qos::DomainParticipantQos qos = participant.qos();
+
+    ASSERT_EQ(qos, PARTICIPANT_QOS_DEFAULT);
+
+    qos.entity_factory.autoenable_created_entities = false;
+    participant.qos(qos);
+    ::dds::domain::qos::DomainParticipantQos pqos;
+    pqos = participant.qos();
 
     ASSERT_NE(pqos, PARTICIPANT_QOS_DEFAULT);
     ASSERT_EQ(qos, pqos);
