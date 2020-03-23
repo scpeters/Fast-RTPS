@@ -16,6 +16,8 @@
 #include <gtest/gtest.h>
 
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
+#include <fastdds/dds/domain/DomainParticipant.hpp>
+#include <fastdds/dds/domain/DomainParticipantListener.hpp>
 #include <dds/domain/DomainParticipant.hpp>
 #include <dds/core/types.hpp>
 
@@ -37,6 +39,19 @@ TEST(ParticipantTests, CreatePSMDomainParticipant)
     participant = ::dds::domain::DomainParticipant(0, PARTICIPANT_QOS_DEFAULT);
 
     ASSERT_NE(participant, ::dds::core::null);
+
+}
+
+TEST(ParticipantTests, DomainParticipantListenerMethods)
+{
+    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(0);
+
+    ASSERT_EQ(participant->get_listener(), nullptr);
+
+    DomainParticipantListener* listener;
+    participant->set_listener(listener);
+
+    ASSERT_EQ(listener, participant->get_listener());
 
 }
 
