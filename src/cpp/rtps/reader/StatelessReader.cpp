@@ -268,9 +268,11 @@ bool StatelessReader::processDataMsg(
 
         CacheChange_t* change_to_add;
 
+auto t0 = DBGTCK::now();
         //Reserve a new cache from the corresponding cache pool
         if (reserveCache(&change_to_add, change->serializedPayload.length))
         {
+DBGT_COUNT_DIFF(process_data_message_reserve_cache, t0, DBGTCK::now())
 #if HAVE_SECURITY
             if (getAttributes().security_attributes().is_payload_protected)
             {
@@ -287,6 +289,7 @@ bool StatelessReader::processDataMsg(
             else
             {
 #endif
+auto t1 = DBGTCK::now();
             if (!change_to_add->copy(change))
             {
                 logWarning(RTPS_MSG_IN, IDSTRING "Problem copying CacheChange, received data is: "
@@ -295,6 +298,7 @@ bool StatelessReader::processDataMsg(
                 releaseCache(change_to_add);
                 return false;
             }
+DBGT_COUNT_DIFF(process_data_message_copy, t1, DBGTCK::now())
 #if HAVE_SECURITY
         }
 #endif
