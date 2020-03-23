@@ -90,7 +90,7 @@ DomainParticipantImpl::DomainParticipantImpl(
         DomainParticipant* dp,
         const DomainParticipantQos& qos,
         DomainParticipantListener* listen)
-    : att_(qos.participant_attr)
+    : qos_(qos)
     , rtps_participant_(nullptr)
     , participant_(dp)
     , listener_(listen)

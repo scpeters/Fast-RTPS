@@ -52,6 +52,12 @@ public:
                (this->entity_factory == b.entity_factory);
     }
 
+    bool operator !=(
+            const DomainParticipantQos& b) const
+    {
+        return !(*this == b);
+    }
+
     fastrtps::ParticipantAttributes participant_attr;
 
     //!UserData Qos, NOT implemented in the library.

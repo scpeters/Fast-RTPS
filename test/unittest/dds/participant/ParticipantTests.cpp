@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
+#include <fastdds/dds/domain/DomainParticipant.hpp>
 #include <dds/domain/DomainParticipant.hpp>
 #include <dds/core/types.hpp>
 
@@ -37,6 +38,25 @@ TEST(ParticipantTests, CreatePSMDomainParticipant)
     participant = ::dds::domain::DomainParticipant(0, PARTICIPANT_QOS_DEFAULT);
 
     ASSERT_NE(participant, ::dds::core::null);
+
+}
+
+TEST(ParticipantTests, ChangeDomainParticipantQos)
+{
+    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(0);
+    DomainParticipantQos qos;
+    participant->get_qos(qos);
+
+    ASSERT_EQ(qos, PARTICIPANT_QOS_DEFAULT);
+
+    qos.entity_factory.autoenable_created_entities = false;
+    ASSERT_TRUE(participant->set_qos(qos) == ReturnCode_t::RETCODE_OK);
+    DomainParticipantQos pqos;
+    participant->get_qos(pqos);
+
+    ASSERT_NE(pqos, PARTICIPANT_QOS_DEFAULT);
+    ASSERT_EQ(qos, pqos);
+    ASSERT_EQ(qos.entity_factory.autoenable_created_entities, false);
 
 }
 
