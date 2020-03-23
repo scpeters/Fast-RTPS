@@ -93,7 +93,7 @@ public:
         return ReturnCode_t::RETCODE_OK;
     }
 
-    const DomainParticipantListener* get_listener() const
+    DomainParticipantListener* get_listener() const
     {
         return listener_;
     }

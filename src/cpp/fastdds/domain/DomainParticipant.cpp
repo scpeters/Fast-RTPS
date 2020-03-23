@@ -46,12 +46,14 @@ DomainParticipant::~DomainParticipant()
 }
 
 ReturnCode_t DomainParticipant::set_listener(
-        DomainParticipantListener* listener)
+        DomainParticipantListener* listener,
+        const StatusMask& mask)
 {
+    status_mask_ = mask;
     return impl_->set_listener(listener);
 }
 
-const DomainParticipantListener* DomainParticipant::get_listener() const
+DomainParticipantListener* DomainParticipant::get_listener() const
 {
     return impl_->get_listener();
 }
