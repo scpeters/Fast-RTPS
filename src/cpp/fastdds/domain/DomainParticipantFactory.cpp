@@ -202,9 +202,11 @@ DomainParticipant* DomainParticipantFactory::create_participant(
         DomainParticipantListener* listen,
         const StatusMask& mask)
 {
+    DomainParticipantQos pqos = qos;
+    pqos.participant_attr.rtps.builtin.domainId = did;
     DomainParticipant* dom_part = new DomainParticipant(mask);
-    DomainParticipantImpl* dom_part_impl = new DomainParticipantImpl(dom_part, qos, listen);
-    RTPSParticipant* part = RTPSDomain::createParticipant(qos.participant_attr.rtps, &dom_part_impl->rtps_listener_);
+    DomainParticipantImpl* dom_part_impl = new DomainParticipantImpl(dom_part, pqos, listen);
+    RTPSParticipant* part = RTPSDomain::createParticipant(pqos.participant_attr.rtps, &dom_part_impl->rtps_listener_);
 
     if (part == nullptr)
     {
