@@ -16,6 +16,7 @@
 #include <gtest/gtest.h>
 
 #include <fastdds/dds/domain/DomainParticipantFactory.hpp>
+#include <fastdds/dds/publisher/qos/PublisherQos.hpp>
 #include <dds/domain/DomainParticipant.hpp>
 #include <dds/core/types.hpp>
 
@@ -38,6 +39,26 @@ TEST(ParticipantTests, CreatePSMDomainParticipant)
 
     ASSERT_NE(participant, ::dds::core::null);
 
+}
+
+TEST(ParticipantTests, ChangeDefaultPublisherQos)
+{
+    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(0);
+
+    PublisherQos qos;
+    participant->get_default_publisher_qos(qos);
+
+    ASSERT_EQ(qos, PUBLISHER_QOS_DEFAULT);
+
+    qos.entity_factory.autoenable_created_entities = false;
+
+    participant->set_default_publisher_qos(qos);
+
+    PublisherQos pqos;
+    participant->get_default_publisher_qos(pqos);
+
+    ASSERT_TRUE(qos == pqos);
+    ASSERT_EQ(pqos.entity_factory.autoenable_created_entities, false);
 }
 
 } // namespace dds
