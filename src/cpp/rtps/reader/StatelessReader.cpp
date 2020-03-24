@@ -26,6 +26,7 @@
 #include <fastdds/rtps/builtin/liveliness/WLP.h>
 #include <fastdds/rtps/writer/LivelinessManager.h>
 #include <rtps/participant/RTPSParticipantImpl.h>
+#include "rtps/RTPSDomainImpl.hpp"
 
 #include <mutex>
 #include <thread>
@@ -290,7 +291,15 @@ DBGT_COUNT_DIFF(process_data_message_reserve_cache, t0, DBGTCK::now())
             {
 #endif
 auto t1 = DBGTCK::now();
-            if (!change_to_add->copy(change))
+            if (!m_guid.is_builtin() && RTPSDomainImpl::should_intraprocess_between(change->writerGUID, m_guid))
+            {
+                change_to_add->copy_not_memcpy(change);
+                octet* d = change->serializedPayload.data;
+                change->serializedPayload.data = change_to_add->serializedPayload.data;
+                change_to_add->serializedPayload.data = d;
+                change_to_add->serializedPayload.length = change->serializedPayload.length;
+            }
+            else if (!change_to_add->copy(change))
             {
                 logWarning(RTPS_MSG_IN, IDSTRING "Problem copying CacheChange, received data is: "
                         << change->serializedPayload.length << " bytes and max size in reader "
