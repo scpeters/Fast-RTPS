@@ -59,6 +59,14 @@ TEST(ParticipantTests, CreatePSMPublisher)
     ASSERT_NE(publisher, ::dds::core::null);
 }
 
+TEST(ParticipantTests, DeletePublisher)
+{
+    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(0);
+    Publisher* publisher = participant->create_publisher(PUBLISHER_QOS_DEFAULT);
+
+    ASSERT_TRUE(participant->delete_publisher(publisher) == ReturnCode_t::RETCODE_OK);
+}
+
 } // namespace dds
 } // namespace fastdds
 } // namespace eprosima
