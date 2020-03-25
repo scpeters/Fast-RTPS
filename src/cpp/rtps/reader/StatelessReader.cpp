@@ -269,11 +269,11 @@ bool StatelessReader::processDataMsg(
 
         CacheChange_t* change_to_add;
 
-auto t0 = DBGTCK::now();
+DBGT_NOW(t0);
         //Reserve a new cache from the corresponding cache pool
         if (reserveCache(&change_to_add, change->serializedPayload.length))
         {
-DBGT_COUNT_DIFF(process_data_message_reserve_cache, t0, DBGTCK::now())
+DBGT_COUNT_DIFF(process_data_message_reserve_cache, t0, DBGTCK::now());
 #if HAVE_SECURITY
             if (getAttributes().security_attributes().is_payload_protected)
             {
@@ -290,7 +290,7 @@ DBGT_COUNT_DIFF(process_data_message_reserve_cache, t0, DBGTCK::now())
             else
             {
 #endif
-auto t1 = DBGTCK::now();
+DBGT_NOW(t1);
             if (!m_guid.is_builtin() && RTPSDomainImpl::should_intraprocess_between(change->writerGUID, m_guid))
             {
                 change_to_add->copy_not_memcpy(change);
@@ -307,7 +307,7 @@ auto t1 = DBGTCK::now();
                 releaseCache(change_to_add);
                 return false;
             }
-DBGT_COUNT_DIFF(process_data_message_copy, t1, DBGTCK::now())
+DBGT_COUNT_DIFF(process_data_message_copy, t1, DBGTCK::now());
 #if HAVE_SECURITY
         }
 #endif

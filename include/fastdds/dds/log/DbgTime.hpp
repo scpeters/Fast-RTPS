@@ -104,9 +104,15 @@ public:
     }
 };
 
+#define DBGT_COMPILE_DISABLE
+
 #define DBGT dbg_time()
 #define DBGT_ENABLE(PARAM_BOOL) dbg_time()->enabled_ = PARAM_BOOL
 using DBGTCK = std::chrono::high_resolution_clock;
+
+#ifndef DBGT_COMPILE_DISABLE
+
+#define DBGT_NOW(var) auto var = DBGTCK::now()
 
 #define DBGT_SET(VAR, VAL) \
     if (dbg_time()->count_allowed()) \
@@ -126,6 +132,15 @@ using DBGTCK = std::chrono::high_resolution_clock;
     dbg_time()->time[DbgTime::BLOCK].calls++; \
     dbg_time()->time[DbgTime::BLOCK].time += (T1 - T0).count(); \
 } \
+
+#else //DBGT_COMPILE_DISABLE
+
+#define DBGT_NOW(var) ((void)0)
+#define DBGT_SET(VAR, VAL) ((void)0)
+#define DBGT_COUNT_DIFF(BLOCK, T0, T1) ((void)0)
+#define DBGT_COUNT_DIFF_FORCE(BLOCK, T0, T1) ((void)0)
+
+#endif
 
 
 #endif

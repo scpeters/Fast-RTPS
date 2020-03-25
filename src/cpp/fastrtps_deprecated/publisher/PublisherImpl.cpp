@@ -165,7 +165,7 @@ bool PublisherImpl::create_new_change_with_params(
         {
             if (changeKind == ALIVE)
             {
- auto t0 = DBGTCK::now();
+ DBGT_NOW(t0);
                 //If these two checks are correct, we asume the cachechange is valid and thwn we can write to it.
                 if (!mp_type->serialize(data, &ch->serializedPayload))
                 {
