@@ -52,12 +52,14 @@ public:
     {
         create_new_change,
         serialize,
+        memcpy_serialize,
         intraprocess_delivery,
         process_data_message_reserve_cache,
         process_data_message_copy,
         notify_wait_for_unread_cache,
         take_next_data,
         take_next_data_deserialize,
+        memcpy_deserialize,
         take_next_data_fails,
         TB_UPPERBOUND
     };
@@ -80,12 +82,14 @@ public:
         static const char* names[] = {
             "create_new_change", 
             "->serialize",
+            "->->memcpy_serialize",
             "->intraprocess_delivery",
             "->->process_data_message_reserve_cache",
             "->->process_data_message_copy",
             "notify_wait_for_unread_cache",
             "take_next_data",
             "->take_next_data_deserialize",
+            "->->memcpy_deserialize",
             "take_next_data_fails"
         };
 

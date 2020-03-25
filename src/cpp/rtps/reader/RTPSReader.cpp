@@ -140,6 +140,7 @@ SequenceNumber_t RTPSReader::update_last_notified(
         const SequenceNumber_t& seq)
 {
     SequenceNumber_t ret_val;
+
     //std::lock_guard<RecursiveTimedMutex> guard(mp_mutex);
     std::unique_lock<RecursiveTimedMutex> guard(mp_mutex);
 
