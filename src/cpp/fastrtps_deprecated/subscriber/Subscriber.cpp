@@ -42,7 +42,7 @@ bool Subscriber::readNextData(void* data,SampleInfo_t* info)
 
 bool Subscriber::takeNextData(void* data,SampleInfo_t* info)
 {
-auto t0 = DBGTCK::now();
+DBGT_NOW(t0);
     auto ret = mp_impl->takeNextData(data, info);
 if (ret)
 {
@@ -58,7 +58,7 @@ else
 
 bool Subscriber::takeNextData(void* data,SampleInfo_t* info, uint32_t* untaken_samples)
 {
-auto t0 = DBGTCK::now();
+DBGT_NOW(t0);
     auto ret = mp_impl->takeNextData(data, info, untaken_samples);
 if (ret)
 {
