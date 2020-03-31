@@ -244,7 +244,8 @@ int main(
     participant_qos.participant_attr.rtps.builtin.domainId = seed % 230;
     ParListener participant_listener(exit_on_lost_liveliness);
     DomainParticipant* participant =
-            DomainParticipantFactory::get_instance()->create_participant(participant_attributes, &participant_listener);
+            DomainParticipantFactory::get_instance()->create_participant(participant_qos.participant_attr,
+                    &participant_listener);
 
     if (participant == nullptr)
     {
