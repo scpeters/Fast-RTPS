@@ -28,6 +28,7 @@
 #include <fastdds/dds/publisher/qos/PublisherQos.hpp>
 #include <fastdds/dds/subscriber/qos/SubscriberQos.hpp>
 #include <fastdds/dds/domain/qos/DomainParticipantQos.hpp>
+#include <fastdds/dds/topic/qos/TopicQos.hpp>
 
 #include <fastdds/dds/topic/TypeSupport.hpp>
 #include <fastrtps/types/TypesBase.h>
@@ -195,7 +196,10 @@ public:
 
     const fastdds::dds::SubscriberQos& get_default_subscriber_qos() const;
 
-    // TODO Get/Set default Topic Qos
+    ReturnCode_t set_default_topic_qos(
+            const TopicQos& qos);
+
+    const TopicQos& get_default_topic_qos() const;
 
     /* TODO
        bool get_discovered_participants(
@@ -322,6 +326,8 @@ private:
     //!TopicDataType map
     std::map<std::string, TypeSupport> types_;
     mutable std::mutex mtx_types_;
+
+    TopicQos default_topic_qos_;
 
     // Mutex for requests and callbacks maps.
     std::mutex mtx_request_cb_;
