@@ -369,10 +369,15 @@ std::shared_ptr<SharedMemManager::Buffer> SharedMemTransport::copy_to_shared_buf
         uint32_t send_buffer_size,
         const std::chrono::steady_clock::time_point& max_blocking_time_point)
 {
+    (void)max_blocking_time_point;
+
     assert(shared_mem_segment_);
 
+    /*std::shared_ptr<SharedMemManager::Buffer> shared_buffer =
+            shared_mem_segment_->alloc_buffer(send_buffer_size, max_blocking_time_point);*/
     std::shared_ptr<SharedMemManager::Buffer> shared_buffer =
-            shared_mem_segment_->alloc_buffer(send_buffer_size, max_blocking_time_point);
+            shared_mem_segment_->alloc_buffer(send_buffer_size, 
+                std::chrono::steady_clock::time_point());
 
     memcpy(shared_buffer->data(), send_buffer, send_buffer_size);
 

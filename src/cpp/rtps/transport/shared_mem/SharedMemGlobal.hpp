@@ -65,14 +65,33 @@ public:
     {
         UUID<8> uuid;
         uint32_t port_id;
+
         SharedMemSegment::condition_variable empty_cv;
         SharedMemSegment::mutex empty_cv_mutex;
+
         SharedMemSegment::offset buffer;
         SharedMemSegment::offset buffer_node;
         std::atomic<uint32_t> ref_counter;
+
         uint32_t waiting_count;
         uint32_t check_awaken_count;
         uint32_t check_id;
+
+        static constexpr size_t LISTENERS_STATUS_SIZE = 1024;
+        struct ListenerStatus
+        {
+            uint8_t is_waiting              : 1;
+            uint8_t counter                 : 3;
+            uint8_t last_verified_counter   : 3;
+            uint8_t pad                     : 1;
+        };
+        ListenerStatus listeners_status[LISTENERS_STATUS_SIZE];
+        uint32_t num_listeners;
+        std::atomic<std::chrono::high_resolution_clock::rep> last_listeners_status_check_time_ms;
+        uint32_t healthy_check_timeout_ms;
+        uint32_t shared_port_wait_timeout_ms;
+        uint32_t max_buffer_descriptors;
+
         bool is_port_ok;
         bool is_opened_read_exclusive;
         bool is_opened_for_reading;
@@ -93,43 +112,9 @@ public:
 
         PortNode* node_;
 
-        std::unique_ptr<MultiProducerConsumerRingBuffer<BufferDescriptor> > buffer_;
+        std::unique_ptr<MultiProducerConsumerRingBuffer<BufferDescriptor>> buffer_;
 
         uint64_t overflows_count_;
-
-        bool was_check_thread_detached_;
-
-        bool check_all_waiting_threads_alive(
-                uint32_t time_out_ms)
-        {
-            bool is_check_ok = false;
-
-            {
-                std::lock_guard<SharedMemSegment::mutex> lock_empty(node_->empty_cv_mutex);
-
-                if (!node_->is_port_ok)
-                {
-                    throw std::runtime_error("Previous check failed");
-                }
-
-                node_->check_id++;
-                node_->check_awaken_count = node_->waiting_count;
-
-                node_->empty_cv.notify_all();
-            }
-
-            auto start = std::chrono::high_resolution_clock::now();
-
-            do
-            {
-                std::this_thread::yield();
-                is_check_ok = node_->check_awaken_count == 0;
-            }
-            while (!is_check_ok &&
-                    std::chrono::high_resolution_clock::now() < start + std::chrono::milliseconds(time_out_ms));
-
-            return is_check_ok;
-        }
 
         inline void notify_unicast(
                 bool was_buffer_empty_before_push)
@@ -145,6 +130,142 @@ public:
             node_->empty_cv.notify_all();
         }
 
+        class PortWatchdog
+        {
+        public:
+            static PortWatchdog& get()
+            {
+                static PortWatchdog watch_dog;
+                return watch_dog;
+            }
+
+            void add_port_to_watch(PortNode* port)
+            {
+                std::lock_guard<std::mutex> lock(watched_ports_mutex_);
+                watched_ports_.push_back(port);
+            }
+
+            void remove_port_from_watch(PortNode* port)
+            {
+                std::lock_guard<std::mutex> lock(watched_ports_mutex_);
+
+                auto it = std::find(watched_ports_.begin(), watched_ports_.end(), port);
+                if(it != watched_ports_.end())
+                {
+                    watched_ports_.erase(it);
+                }
+            }
+
+            void wake_up()
+            {
+                std::lock_guard<std::mutex> lock(wake_run_mutex_);
+                wake_run_ = true;
+            }
+
+        private:
+
+            std::vector<PortNode*> watched_ports_;
+            std::thread thread_run_;
+            std::mutex watched_ports_mutex_;
+
+            std::condition_variable wake_run_cv_;
+            std::mutex wake_run_mutex_;
+            bool wake_run_;            
+
+            bool exit_thread_;            
+
+            PortWatchdog()
+                : wake_run_(false)
+                , exit_thread_(false)
+            {
+                thread_run_ = std::thread(&PortWatchdog::run, this);
+            }
+
+            ~PortWatchdog()
+            {
+                exit_thread_ = true;
+                wake_up();
+                thread_run_.join();
+            }
+
+            void update_status_all_listeners(PortNode* port)
+            {
+                for (uint32_t i = 0; i < port->num_listeners; i++)
+                {
+                    auto& status = port->listeners_status[i];
+                    // Check only currently waiting listeners
+                    if (status.is_waiting)
+                    {
+                        if (status.counter != status.last_verified_counter)
+                        {
+                            status.last_verified_counter = status.counter;
+                        }
+                        else // Counter is freeze => this listener is blocked!!!
+                        {
+                            port->is_port_ok = false;
+                            throw std::runtime_error("Listener freezed.");
+                        }
+                    }
+                }
+
+                port->last_listeners_status_check_time_ms.exchange(
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::high_resolution_clock::now().time_since_epoch()).count());                    
+            }
+
+            void run()
+            {
+                while (!exit_thread_)
+                {
+                    {
+                        std::unique_lock<std::mutex> lock(wake_run_mutex_);
+
+                        wake_run_cv_.wait_for(
+                            lock,
+                            std::chrono::seconds(1),
+                            [&] { return wake_run_; });
+
+                        wake_run_ = false;
+                    }
+
+                    auto now = std::chrono::high_resolution_clock::now();
+
+                    std::lock_guard<std::mutex> lock(watched_ports_mutex_);
+
+                    auto port_it =  watched_ports_.begin();
+                    while (port_it != watched_ports_.end())
+                    {           
+                        // If more than 'healthy_check_timeout_ms' milliseconds elapsed since last check
+                        if (std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count()
+                            - (*port_it)->last_listeners_status_check_time_ms.load() 
+                                > (*port_it)->healthy_check_timeout_ms)
+                        {
+                            try
+                            {
+                                std::unique_lock<SharedMemSegment::mutex> lock_port((*port_it)->empty_cv_mutex);
+                                update_status_all_listeners((*port_it));                                
+                                ++port_it;
+                            }
+                            catch(std::exception& e)
+                            {
+                                (*port_it)->is_port_ok = false;
+
+                                logWarning(RTPS_TRANSPORT_SHM, "Port " << (*port_it)->port_id
+                                    << " error: " << e.what());
+
+                                // Remove the port from watch
+                                port_it = watched_ports_.erase(port_it);                                
+                            }
+                        }                         
+                        else
+                        {
+                            ++port_it;
+                        }                     
+                    }
+                }
+            }
+        };
+        
     public:
 
         /**
@@ -163,6 +284,19 @@ public:
             Write 
         };
 
+        static std::string open_mode_to_string(
+                OpenMode open_mode) 
+        {
+            switch (open_mode)
+            {
+                case OpenMode::ReadShared: return "ReadShared";
+                case OpenMode::ReadExclusive : return "ReadExclusive";
+                case OpenMode::Write: return "Write";
+            }
+
+            return "";
+        }
+
         Port(
                 std::unique_ptr<SharedMemSegment>&& port_segment,
                 PortNode* node)
@@ -180,12 +314,16 @@ public:
                 new MultiProducerConsumerRingBuffer<BufferDescriptor>(buffer_base, buffer_node));
 
             node_->ref_counter.fetch_add(1);
+
+            PortWatchdog::get().add_port_to_watch(node_);
         }
 
         ~Port()
         {
+            PortWatchdog::get().remove_port_from_watch(node_);
+
             if (node_->ref_counter.fetch_sub(1) == 1)
-            {
+            {                
                 auto segment_name = port_segment_->name();
 
                 logInfo(RTPS_TRANSPORT_SHM, THREADID << "Port " << node_->port_id
@@ -218,6 +356,11 @@ public:
                 bool* listeners_active)
         {
             std::unique_lock<SharedMemSegment::mutex> lock_empty(node_->empty_cv_mutex);
+
+            if (!node_->is_port_ok)
+            {
+                throw std::runtime_error("the port is marked as not ok!");
+            }
 
             try
             {
@@ -259,37 +402,182 @@ public:
          */
         void wait_pop(
                 Listener& listener,
+                const std::atomic<bool>& is_listener_closed,
+                uint32_t listener_index)
+        {
+            /*if(node_->is_opened_read_exclusive)
+            {
+                wait_pop_exclusive(listener, is_listener_closed);
+            }
+            else
+            {
+                wait_pop_shared(listener, is_listener_closed, listener_index);
+            }*/
+            wait_pop_shared(listener, is_listener_closed, listener_index);
+        }
+
+        /*void wait_pop_exclusive(
+                Listener& listener,
                 const std::atomic<bool>& is_listener_closed)
         {
-            std::unique_lock<SharedMemSegment::mutex> lock(node_->empty_cv_mutex);
-
-            uint32_t check_id = node_->check_id;
-
-            node_->waiting_count++;
-
-            do
+            try
             {
-                node_->empty_cv.wait(lock, [&] {
-                                return is_listener_closed.load() || listener.head() != nullptr || check_id != node_->check_id;
-                            });
+                std::unique_lock<SharedMemSegment::mutex> lock(node_->empty_cv_mutex);
 
-                if (check_id != node_->check_id)
+                if(!node_->is_port_ok)
                 {
-                    node_->check_awaken_count--;
-                    check_id = node_->check_id;
+                    throw std::runtime_error("port marked as not ok");
+                }
 
-                    if (listener.head())
+                uint32_t check_id = node_->check_id;
+
+                node_->waiting_count++;
+
+                do
+                {
+                    node_->empty_cv.wait(lock, [&] {
+                                    return is_listener_closed.load() || listener.head() != nullptr || check_id != node_->check_id;
+                                });
+
+                    if (check_id != node_->check_id)
+                    {
+                        node_->check_awaken_count--;
+                        check_id = node_->check_id;
+
+                        if (listener.head())
+                        {
+                            break;
+                        }
+                    }
+                    else
                     {
                         break;
                     }
-                }
-                else
-                {
-                    break;
-                }
-            } while (1);
+                } while (1);
 
-            node_->waiting_count--;
+                node_->waiting_count--;
+            }
+            catch(const std::exception& e)
+            {
+                node_->is_port_ok = false;
+                throw;
+            }
+        }*/
+
+        void wait_pop_shared(
+                Listener& listener,
+                const std::atomic<bool>& is_listener_closed,
+                uint32_t listener_index)
+        {
+            try
+            {
+                std::unique_lock<SharedMemSegment::mutex> lock(node_->empty_cv_mutex);
+
+                if(!node_->is_port_ok)
+                {
+                    throw std::runtime_error("port marked as not ok");
+                }
+
+                uint32_t check_id = node_->check_id;
+
+                node_->waiting_count++;
+
+                auto& status = node_->listeners_status[listener_index];
+                // Update this listener status
+                status.is_waiting = 1;
+                status.counter = status.last_verified_counter + 1;
+
+                do
+                {                 
+                    boost::system_time const timeout = 
+                        boost::get_system_time()+ boost::posix_time::milliseconds(node_->shared_port_wait_timeout_ms);
+
+                    if(node_->empty_cv.timed_wait(lock, timeout, [&] {
+                        return is_listener_closed.load() || listener.head() != nullptr || check_id != node_->check_id;
+                        }))
+                    {
+                        if (check_id != node_->check_id)
+                        {
+                            node_->check_awaken_count--;
+                            check_id = node_->check_id;
+
+                            if (listener.head())
+                            {
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            break;
+                        }
+                    }
+                    else // Timeout
+                    {
+                        if(!node_->is_port_ok)
+                        {
+                            throw std::runtime_error("port marked as not ok");
+                        }
+
+                        status.counter = status.last_verified_counter + 1;
+                    }
+                } while (1);
+
+                status.is_waiting = 0;
+                node_->waiting_count--;
+            }
+            catch(const std::exception& e)
+            {
+                node_->is_port_ok = false;
+                throw;
+            }
+        }
+
+        bool check_status_all_listeners() const
+        {
+            for (uint32_t i = 0; i < node_->num_listeners; i++)
+            {
+                auto& status = node_->listeners_status[i];
+                // Check only currently waiting listeners
+                if (status.is_waiting)
+                {
+                    if (status.counter == status.last_verified_counter)
+                    {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        inline bool is_port_ok() const
+        {
+            return node_->is_port_ok;
+        }
+
+        inline uint32_t port_id() const
+        {
+            return node_->port_id;
+        }
+
+        inline OpenMode open_mode() const
+        {
+            if(node_->is_opened_for_reading)
+            {
+                return node_->is_opened_read_exclusive ? OpenMode::ReadExclusive : OpenMode::ReadShared;
+            }
+            
+            return OpenMode::Write;
+        }
+
+        inline uint32_t healthy_check_timeout_ms() const
+        {
+            return node_->healthy_check_timeout_ms;
+        }
+
+        inline uint32_t max_buffer_descriptors() const
+        {
+            return node_->max_buffer_descriptors;
         }
 
         /**
@@ -326,17 +614,28 @@ public:
         /**
          * Register a new listener
          * The new listener's read pointer is equal to the ring-buffer write pointer at the registering moment.
+         * @param [out] listener_index pointer to where the index of the listener is returned. This index is
+         * used to reference the elements from the listeners_status array.
          * @return A shared_ptr to the listener.
          * The listener will be unregistered when shared_ptr is destroyed.
          */
-        std::shared_ptr<Listener> create_listener()
+        std::shared_ptr<Listener> create_listener(uint32_t* listener_index)
         {
+            std::lock_guard<SharedMemSegment::mutex> lock(node_->empty_cv_mutex);
+
+            *listener_index = node_->num_listeners++;
+
             return buffer_->register_listener();
         }
 
-        bool was_check_thread_detached()
+        /**
+         * Decrement the number of listeners by one
+         */
+        void unregister_listener()
         {
-            return was_check_thread_detached_;
+            std::lock_guard<SharedMemSegment::mutex> lock(node_->empty_cv_mutex);
+
+            node_->num_listeners--;
         }
 
         /**
@@ -346,7 +645,7 @@ public:
          * healthy check operation.
          * @throw std::exception if the port is inoperative.
          */
-        void healthy_check(
+        /*void healthy_check(   
                 uint32_t healthy_check_timeout_ms)
         {
             std::shared_ptr<bool> is_check_ok = std::make_shared<bool>(false);
@@ -398,6 +697,43 @@ public:
                 node_->is_port_ok = false;
                 throw std::runtime_error("healthy_check failed");
             }
+        }*/
+        void healthy_check()
+        {              
+            if (!node_->is_port_ok)
+            {
+                throw std::runtime_error("port is marked as not ok");
+            }
+
+            auto t0 = std::chrono::high_resolution_clock::now();
+
+            // If in any moment during the timeout all waiting listeners are OK
+            // then the port is OK
+            bool is_check_ok = false;
+            while ( !is_check_ok &&
+                        std::chrono::duration_cast<std::chrono::milliseconds>
+                            (std::chrono::high_resolution_clock::now() - t0).count() < node_->healthy_check_timeout_ms)
+            {
+                {
+                    std::unique_lock<SharedMemSegment::mutex> lock(node_->empty_cv_mutex);
+                    is_check_ok = check_status_all_listeners();
+
+                    if (!node_->is_port_ok)
+                    {
+                        throw std::runtime_error("port marked as not ok");
+                    }
+                }
+
+                if (!is_check_ok)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(node_->shared_port_wait_timeout_ms));
+                }
+            }
+
+            if (!is_check_ok || !node_->is_port_ok)
+            {
+                throw std::runtime_error("healthy_check failed");
+            }
         }
 
     }; // Port
@@ -425,7 +761,8 @@ public:
 
         auto port_segment_name = domain_name_ + "_port" + std::to_string(port_id);
 
-        logInfo(RTPS_TRANSPORT_SHM, THREADID << "Opening " << port_segment_name);
+        logInfo(RTPS_TRANSPORT_SHM, THREADID << "Opening " 
+            << port_segment_name);
 
         std::unique_ptr<SharedMemSegment::named_mutex> port_mutex =
                 SharedMemSegment::open_or_create_and_lock_named_mutex(port_segment_name + "_mutex");
@@ -459,8 +796,8 @@ public:
             }
 
             try
-            {
-                port->healthy_check(healthy_check_timeout_ms);
+            {                
+                port->healthy_check();
 
                 if ( (port_node->is_opened_read_exclusive && open_mode != Port::OpenMode::Write) ||
                         (port_node->is_opened_for_reading && open_mode == Port::OpenMode::ReadExclusive))
@@ -475,34 +812,20 @@ public:
                 }
                 else
                 {
-                    port_node->is_opened_read_exclusive = (open_mode == Port::OpenMode::ReadExclusive);
-                    port_node->is_opened_for_reading |= (open_mode == Port::OpenMode::ReadShared);
+                    port_node->is_opened_read_exclusive |= (open_mode == Port::OpenMode::ReadExclusive);
+                    port_node->is_opened_for_reading |= (open_mode != Port::OpenMode::Write);
 
                     logInfo(RTPS_TRANSPORT_SHM, THREADID << "Port "
                                                          << port_node->port_id << " (" << port_node->uuid.to_string() <<
-                                        ") Opened");
+                                        ") Opened" << Port::open_mode_to_string(open_mode));
                 }
             }
             catch (std::exception&)
             {
                 auto port_uuid = port_node->uuid.to_string();
-
-                // Healthy check left a thread blocked at port resources
-                // So we leave port_segment unmanaged, better to leak memory than a crash
-                if (port->was_check_thread_detached())
-                {
-                    // Release owership
-                    port_segment.release();
-
-                    logWarning(RTPS_TRANSPORT_SHM, THREADID << "Existing Port "
-                                                            << port_id << " (" << port_uuid <<
-                                        ") NOT Healthy (check_thread detached).");
-                }
-                else
-                {
-                    logWarning(RTPS_TRANSPORT_SHM, THREADID << "Existing Port "
-                                                            << port_id << " (" << port_uuid << ") NOT Healthy.");
-                }
+                
+                logWarning(RTPS_TRANSPORT_SHM, THREADID << "Existing Port "
+                                                        << port_id << " (" << port_uuid << ") NOT Healthy.");           
 
                 SharedMemSegment::remove(port_segment_name.c_str());
 
@@ -530,7 +853,7 @@ public:
                 memset(payload, 0, segment_size);
                 port_segment->get().deallocate(payload);
 
-                port = init_port(port_id, port_segment, max_buffer_descriptors, open_mode);
+                port = init_port(port_id, port_segment, max_buffer_descriptors, open_mode, healthy_check_timeout_ms);
             }
             catch (std::exception& e)
             {
@@ -557,7 +880,8 @@ private:
             uint32_t port_id,
             std::unique_ptr<SharedMemSegment>& segment,
             uint32_t max_buffer_descriptors,
-            Port::OpenMode open_mode)
+            Port::OpenMode open_mode,
+            uint32_t healthy_check_timeout_ms)
     {
         std::shared_ptr<Port> port;
         PortNode* port_node = nullptr;
@@ -575,6 +899,14 @@ private:
             port_node->check_id = 0;
             port_node->is_opened_read_exclusive = (open_mode == Port::OpenMode::ReadExclusive);
             port_node->is_opened_for_reading = (open_mode != Port::OpenMode::Write);
+            port_node->num_listeners = 0;
+            port_node->healthy_check_timeout_ms = healthy_check_timeout_ms;
+            port_node->last_listeners_status_check_time_ms = 
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+            port_node->shared_port_wait_timeout_ms = healthy_check_timeout_ms / 3;
+            port_node->max_buffer_descriptors = max_buffer_descriptors;
+            memset(port_node->listeners_status, 0, sizeof(port_node->listeners_status));
 
             // Buffer cells allocation
             port_node->buffer =
@@ -593,8 +925,8 @@ private:
             port = std::make_shared<Port>(std::move(segment), port_node);
 
             logInfo(RTPS_TRANSPORT_SHM, THREADID << "Port "
-                                                 << port_node->port_id << " (" << port_node->uuid.to_string() <<
-                                ") Created.");
+                                                 << port_node->port_id << " (" << port_node->uuid.to_string() 
+                                << Port::open_mode_to_string(open_mode) << ") Created.");
         }
         catch (const std::exception&)
         {
