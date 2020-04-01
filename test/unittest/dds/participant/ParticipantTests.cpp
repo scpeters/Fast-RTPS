@@ -60,6 +60,14 @@ TEST(ParticipantTests, CreatePSMSubscriber)
     ASSERT_NE(subscriber, ::dds::core::null);
 }
 
+TEST(ParticipantTests, DeleteSubscriber)
+{
+    DomainParticipant* participant = DomainParticipantFactory::get_instance()->create_participant(0);
+    Subscriber* subscriber = participant->create_subscriber(SUBSCRIBER_QOS_DEFAULT);
+
+    ASSERT_TRUE(participant->delete_subscriber(subscriber) == ReturnCode_t::RETCODE_OK);
+}
+
 } // namespace dds
 } // namespace fastdds
 } // namespace eprosima
